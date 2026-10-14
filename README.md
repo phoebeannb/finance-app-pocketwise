@@ -1,1 +1,1 @@
-# finance-app-pocketwise
+# MERN Finance App PocketWise
