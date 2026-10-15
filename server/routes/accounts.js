@@ -9,7 +9,6 @@ router.use(auth);
 const LIABILITIES = ["Credit Card", "Loan"];
 const r2 = (n) => Math.round(n * 100) / 100;
 
-// Only these fields can be set from the request
 const pick = ({ name, type, provider, balance, notes }) => ({
   name,
   type,
@@ -23,15 +22,18 @@ router.get("/", async (req, res) => {
   const txs = await Transaction.find({
     user: req.userId,
     $or: [{ account: { $ne: null } }, { toAccount: { $ne: null } }],
-  }).select("type amount account toAccount").lean();
+  }).select("type amount fee account toAccount").lean();
 
-  // "Asset-style" effect per account: income +, expense -, transfer out -, transfer in +
+  // income +, expense -, transfer out -(amount + fee), transfer in +amount
   const delta = {};
   const add = (id, n) => { if (id) delta[id] = (delta[id] || 0) + n; };
   for (const t of txs) {
     if (t.type === "income") add(t.account, t.amount);
     else if (t.type === "expense") add(t.account, -t.amount);
-    else if (t.type === "transfer") { add(t.account, -t.amount); add(t.toAccount, t.amount); }
+    else if (t.type === "transfer") {
+      add(t.account, -(t.amount + (t.fee || 0)));
+      add(t.toAccount, t.amount);
+    }
   }
 
   // For credit cards and loans the balance is money owed, so the effect flips
@@ -66,9 +68,27 @@ router.put("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
-  const account = await Account.findOneAndDelete({ _id: req.params.id, user: req.userId });
-  if (!account) return res.status(404).json({ message: "Not found" });
-  res.json({ message: "Deleted" });
+  try {
+    const account = await Account.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    if (!account) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Deleted" });
+  } catch {
+    res.status(404).json({ message: "Not found" });
+  }
+});
+
+router.get("/:id/transactions", async (req, res) => {
+  try {
+    const account = await Account.findOne({ _id: req.params.id, user: req.userId });
+    if (!account) return res.status(404).json({ message: "Not found" });
+    const txs = await Transaction.find({
+      user: req.userId,
+      $or: [{ account: account._id }, { toAccount: account._id }],
+    }).sort({ date: -1, createdAt: -1 }).limit(20).lean();
+    res.json(txs);
+  } catch {
+    res.status(404).json({ message: "Not found" });
+  }
 });
 
 export default router;

@@ -11,7 +11,6 @@ const pad = (n) => String(n).padStart(2, "0");
 const ymd = (d) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 const r2 = (n) => Math.round(n * 100) / 100;
 
-// The time slices ("buckets") for each report period
 function buildBuckets(period) {
   const today = startOfToday();
   const buckets = [];
@@ -47,7 +46,6 @@ function buildBuckets(period) {
   return buckets;
 }
 
-// Which bucket does a date fall into?
 function keyFor(period, date) {
   if (period === "daily") return ymd(date);
   if (period === "weekly") {
@@ -62,9 +60,10 @@ async function run(userId, period) {
   const buckets = buildBuckets(period);
   const txs = await Transaction.find({
     user: userId,
-    type: { $in: ["income", "expense"] }, // transfers are not income or expense
     date: { $gte: buckets[0].start },
-  }).select("type amount category date").lean();
+    // income and expenses, plus transfers that carried a fee (the fee is an expense)
+    $or: [{ type: { $in: ["income", "expense"] } }, { type: "transfer", fee: { $gt: 0 } }],
+  }).select("type amount fee category date").lean();
 
   const series = buckets.map((b) => ({ key: b.key, label: b.label, income: 0, expenses: 0, savings: 0 }));
   const index = Object.fromEntries(series.map((s, i) => [s.key, i]));
@@ -73,11 +72,15 @@ async function run(userId, period) {
   for (const t of txs) {
     const i = index[keyFor(period, t.date)];
     if (i === undefined) continue;
-    if (t.type === "income") series[i].income += t.amount;
-    else {
+    if (t.type === "income") {
+      series[i].income += t.amount;
+    } else if (t.type === "expense") {
       series[i].expenses += t.amount;
       const c = t.category?.trim() || "Uncategorized";
       cats[c] = (cats[c] || 0) + t.amount;
+    } else {
+      series[i].expenses += t.fee;
+      cats["Transfer Fees"] = (cats["Transfer Fees"] || 0) + t.fee;
     }
   }
 

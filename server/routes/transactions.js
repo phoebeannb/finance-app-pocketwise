@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Transaction from "../models/Transaction.js";
 import Account from "../models/Account.js";
+import Goal from "../models/Goal.js";
 import auth from "../middleware/auth.js";
 import { startOfToday, startOfThisMonth, addDays } from "../utils/dates.js";
 
@@ -10,8 +11,8 @@ router.use(auth);
 
 const TYPES = ["income", "expense", "transfer"];
 const isId = (v) => mongoose.isValidObjectId(v);
+const r2 = (n) => Math.round(n * 100) / 100;
 
-// Builds a clean transaction object from the request body, or returns { error }
 async function buildPayload(body, userId) {
   const type = body.type;
   const amount = Number(body.amount);
@@ -24,9 +25,16 @@ async function buildPayload(body, userId) {
   const accountId = body.account || null;
   const toId = type === "transfer" ? body.toAccount || null : null;
 
+  let fee = 0;
+  if (type === "transfer" && body.fee !== undefined && body.fee !== null && body.fee !== "") {
+    fee = Number(body.fee);
+    if (!Number.isFinite(fee) || fee < 0) return { error: "Transfer fee must be 0 or more" };
+  }
+
   const data = {
     type,
-    amount,
+    amount: r2(amount),
+    fee: r2(fee),
     date,
     description: (body.description || "").toString().trim().slice(0, 200),
     category: type === "transfer" ? "Transfer" : (body.category || "").toString().trim().slice(0, 60),
@@ -39,7 +47,6 @@ async function buildPayload(body, userId) {
     if (String(accountId) === String(toId)) return { error: "Pick two different accounts" };
   }
 
-  // Accounts must exist and belong to this user
   const ids = [accountId, toId].filter(Boolean);
   if (ids.some((id) => !isId(id))) return { error: "Invalid account" };
   if (ids.length) {
@@ -50,7 +57,6 @@ async function buildPayload(body, userId) {
   return { data };
 }
 
-// List (optional ?type= and ?limit=)
 router.get("/", async (req, res) => {
   const filter = { user: req.userId };
   if (TYPES.includes(req.query.type)) filter.type = req.query.type;
@@ -62,7 +68,7 @@ router.get("/", async (req, res) => {
   res.json(items);
 });
 
-// Summary for the overview cards (transfers are never counted as income or expense)
+// Overview summary. Transfers are not income or expense, but transfer FEES are expenses.
 router.get("/summary", async (req, res) => {
   const match = { user: new mongoose.Types.ObjectId(req.userId) };
   if (req.query.period === "week") match.date = { $gte: addDays(startOfToday(), -6) };
@@ -76,9 +82,16 @@ router.get("/summary", async (req, res) => {
     { $match: { ...match, type: "expense" } },
     { $group: { _id: "$category", total: { $sum: "$amount" } } },
   ]);
+  const fees = await Transaction.aggregate([
+    { $match: { ...match, type: "transfer", fee: { $gt: 0 } } },
+    { $group: { _id: null, total: { $sum: "$fee" } } },
+  ]);
+  const feeTotal = fees[0]?.total || 0;
+  if (feeTotal > 0) byCategory.push({ _id: "Transfer Fees", total: r2(feeTotal) });
+
   const income = byType.find((t) => t._id === "income")?.total || 0;
-  const expenses = byType.find((t) => t._id === "expense")?.total || 0;
-  res.json({ income, expenses, balance: income - expenses, byCategory });
+  const expenses = r2((byType.find((t) => t._id === "expense")?.total || 0) + feeTotal);
+  res.json({ income, expenses, balance: r2(income - expenses), byCategory });
 });
 
 router.post("/", async (req, res) => {
@@ -94,6 +107,11 @@ router.post("/", async (req, res) => {
 
 router.put("/:id", async (req, res) => {
   try {
+    const existing = await Transaction.findOne({ _id: req.params.id, user: req.userId });
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (existing.goal)
+      return res.status(400).json({ message: "Savings entries can't be edited. Delete it and add it again." });
+
     const { error, data } = await buildPayload(req.body, req.userId);
     if (error) return res.status(400).json({ message: error });
     const tx = await Transaction.findOneAndUpdate(
@@ -101,7 +119,6 @@ router.put("/:id", async (req, res) => {
       data,
       { new: true, runValidators: true }
     );
-    if (!tx) return res.status(404).json({ message: "Not found" });
     res.json(tx);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -109,9 +126,23 @@ router.put("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
-  const tx = await Transaction.findOneAndDelete({ _id: req.params.id, user: req.userId });
-  if (!tx) return res.status(404).json({ message: "Not found" });
-  res.json({ message: "Deleted" });
+  try {
+    const tx = await Transaction.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    if (!tx) return res.status(404).json({ message: "Not found" });
+
+    // Deleting a savings entry also reverses it on the goal
+    if (tx.goal) {
+      const goal = await Goal.findOne({ _id: tx.goal, user: req.userId });
+      if (goal) {
+        const change = tx.account ? -tx.amount : tx.amount; // deposit → remove, withdrawal → put back
+        goal.saved = Math.max(0, r2(goal.saved + change));
+        await goal.save();
+      }
+    }
+    res.json({ message: "Deleted" });
+  } catch {
+    res.status(404).json({ message: "Not found" });
+  }
 });
 
 export default router;

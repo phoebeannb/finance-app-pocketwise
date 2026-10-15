@@ -1,22 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Wallet, TrendingUp, TrendingDown, PiggyBank, History } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { formatMoney } from "../utils/format";
+import { txTitle, txSubtitle } from "../utils/txDisplay";
 import TransactionModal from "../components/TransactionModal";
 import TrendChart from "../components/TrendChart";
 import BudgetsPanel from "../components/BudgetsPanel";
 import SavingsGoalsPanel from "../components/SavingsGoalsPanel";
+import TxIcon from "../components/TxIcon";
 
 const COLORS = ["#4f46e5", "#16a34a", "#f59e0b", "#dc2626", "#0891b2", "#9333ea", "#64748b"];
 
-function Card({ label, value, color = "text-slate-800" }) {
+function Card({ icon: Icon, label, value, color = "text-slate-800", tint = "bg-slate-100 text-slate-600" }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className={`mt-1 truncate text-2xl font-semibold ${color}`}>{value}</div>
+    <div className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm">
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tint}`}>
+        <Icon size={22} />
+      </span>
+      <div className="min-w-0">
+        <div className="text-sm text-slate-500">{label}</div>
+        <div className={`truncate text-2xl font-semibold ${color}`}>{value}</div>
+      </div>
     </div>
   );
 }
@@ -50,7 +57,7 @@ export default function Dashboard() {
 
   const handleSaved = () => {
     load();
-    setRefreshKey((k) => k + 1); // makes the budgets panel recalculate
+    setRefreshKey((k) => k + 1);
   };
 
   const chartData = (summary?.byCategory || []).map((c) => ({ name: c._id || "Uncategorized", value: c.total }));
@@ -77,10 +84,14 @@ export default function Dashboard() {
       {summary && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Card label="Available Balance" value={formatMoney(summary.balance)} color={summary.balance < 0 ? "text-red-600" : "text-slate-800"} />
-            <Card label="Total Income" value={formatMoney(summary.income)} color="text-green-600" />
-            <Card label="Total Expenses" value={formatMoney(summary.expenses)} color="text-red-600" />
-            <Card label="Savings Rate" value={`${savingsRate}%`} color={savingsRate < 0 ? "text-red-600" : "text-indigo-600"} />
+            <Card icon={Wallet} label="Available Balance" value={formatMoney(summary.balance)}
+              color={summary.balance < 0 ? "text-red-600" : "text-slate-800"} tint="bg-indigo-100 text-indigo-600" />
+            <Card icon={TrendingUp} label="Total Income" value={formatMoney(summary.income)}
+              color="text-green-600" tint="bg-green-100 text-green-600" />
+            <Card icon={TrendingDown} label="Total Expenses" value={formatMoney(summary.expenses)}
+              color="text-red-600" tint="bg-red-100 text-red-600" />
+            <Card icon={PiggyBank} label="Savings Rate" value={`${savingsRate}%`}
+              color={savingsRate < 0 ? "text-red-600" : "text-indigo-600"} tint="bg-amber-100 text-amber-600" />
           </div>
 
           <div className="mt-6 grid gap-6 xl:grid-cols-2">
@@ -113,12 +124,12 @@ export default function Dashboard() {
             </div>
 
             <BudgetsPanel refreshKey={refreshKey} />
-            <SavingsGoalsPanel />
+            <SavingsGoalsPanel onChanged={handleSaved} />
           </div>
 
           <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Recent Transactions</h3>
+              <h3 className="flex items-center gap-2 text-lg font-semibold"><History size={20} className="text-indigo-600" /> Recent Transactions</h3>
               <Link to="/transactions" className="text-sm text-indigo-600 hover:underline">View all</Link>
             </div>
             {recent.length === 0 ? (
@@ -126,13 +137,11 @@ export default function Dashboard() {
             ) : (
               <ul className="divide-y divide-slate-100">
                 {recent.map((t) => (
-                  <li key={t._id} className="flex items-center justify-between py-2">
-                    <div>
-                      <div className="font-medium">{t.type === "transfer" ? "Transfer" : t.category || "Uncategorized"}</div>
-                      <div className="text-sm text-slate-500">
-                        {t.type === "transfer" ? `${t.account?.name || "—"} → ${t.toAccount?.name || "—"} · ` : ""}
-                        {new Date(t.date).toLocaleDateString()}
-                      </div>
+                  <li key={t._id} className="flex items-center gap-3 py-2">
+                    <TxIcon t={t} />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{txTitle(t)}</div>
+                      <div className="truncate text-sm text-slate-500">{txSubtitle(t)}</div>
                     </div>
                     <span className={`font-semibold ${t.type === "income" ? "text-green-600" : t.type === "expense" ? "text-red-600" : "text-indigo-600"}`}>
                       {t.type === "income" ? "+" : t.type === "expense" ? "-" : ""}{formatMoney(t.amount)}

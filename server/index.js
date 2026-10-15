@@ -10,6 +10,8 @@ import goalRoutes from "./routes/goals.js";
 import reportRoutes from "./routes/reports.js";
 import profileRoutes from "./routes/profile.js";
 import cardRoutes from "./routes/cards.js";
+import categoryRoutes from "./routes/categories.js";
+
 
 dotenv.config();
 const app = express();
@@ -25,6 +27,7 @@ app.use("/api/goals", goalRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/cards", cardRoutes);
+app.use("/api/categories", categoryRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => app.listen(process.env.PORT, () => console.log("Server running")))

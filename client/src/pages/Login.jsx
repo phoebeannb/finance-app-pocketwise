@@ -31,7 +31,7 @@ export default function Login() {
   return (
     <div className="grid min-h-screen bg-white text-left lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 p-12 text-white lg:flex">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-indigo-600 via-indigo-700 to-slate-900 p-12 text-white lg:flex">
         <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10" />
         <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-white/5" />
         <div className="relative flex items-center gap-2 text-2xl font-bold">
@@ -57,7 +57,7 @@ export default function Login() {
           className="w-full max-w-md space-y-5 rounded-3xl bg-white p-8 shadow-xl shadow-slate-200/60 sm:p-10"
         >
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Welcome back</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Welcome Back</h1>
             <p className="mt-1 text-slate-500">Log in to your PocketWise account</p>
           </div>
 

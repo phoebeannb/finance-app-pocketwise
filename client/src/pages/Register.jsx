@@ -35,10 +35,10 @@ export default function Register() {
         className="w-full max-w-md space-y-4 rounded-3xl bg-white p-8 text-left shadow-xl shadow-slate-200/60"
       >
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Create account</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Create Account</h1>
           <p className="mt-1 text-slate-500">Start tracking with PocketWise</p>
         </div>
-
+    
         {error && (
           <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}

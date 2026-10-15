@@ -1,28 +1,53 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Banknote, Landmark, Tag,
+  FileText, CalendarClock, Receipt, Plus,
+} from "lucide-react";
 import api from "../api/axios";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../utils/categories";
+import useCategories from "../hooks/useCategories";
+import { formatMoney } from "../utils/format";
+import { nowLocalInput, toStored, toInput } from "../utils/datetime";
+import Modal from "./Modal";
+import CategoryModal from "./CategoryModal";
 
-const pad = (n) => String(n).padStart(2, "0");
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-const blank = () => ({ type: "expense", amount: "", category: "", description: "", date: today(), account: "", toAccount: "" });
-const TYPES = [["expense", "Expense"], ["income", "Income"], ["transfer", "Transfer"]];
+const blank = () => ({
+  type: "expense", amount: "", category: "", description: "", date: nowLocalInput(),
+  account: "", toAccount: "", hasFee: false, fee: "",
+});
+
+const TYPES = [
+  ["income", "Income", ArrowDownLeft, "text-green-600"],
+  ["expense", "Expense", ArrowUpRight, "text-red-600"],
+  ["transfer", "Transfer", ArrowLeftRight, "text-indigo-600"],
+];
 
 const field =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100";
+
+function Field({ icon: Icon, label, children }) {
+  return (
+    <div>
+      <span className="mb-1 flex items-center gap-1.5 text-sm font-medium text-slate-700">
+        <Icon size={15} className="text-slate-400" /> {label}
+      </span>
+      {children}
+    </div>
+  );
+}
 
 export default function TransactionModal({ open, onClose, onSaved, editing }) {
   const [form, setForm] = useState(blank());
   const [accounts, setAccounts] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
+  const { expense, income, reload } = useCategories();
 
   useEffect(() => {
     if (!open) return;
     setError("");
+    reload();
     api.get("/accounts").then(({ data }) => setAccounts(data)).catch(() => {});
     if (editing) {
       setForm({
@@ -30,34 +55,50 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
         amount: editing.amount,
         category: editing.category || "",
         description: editing.description || "",
-        date: editing.date.slice(0, 10),
+        date: toInput(editing.date),
         account: editing.account?._id || "",
         toAccount: editing.toAccount?._id || "",
+        hasFee: editing.fee > 0,
+        fee: editing.fee > 0 ? editing.fee : "",
       });
     } else {
-      setForm(blank());
+      setForm(blank()); // date and time default to right now
     }
-  }, [open, editing]);
-
-  if (!open) return null;
+  }, [open, editing, reload]);
 
   const isTransfer = form.type === "transfer";
-  const baseCats = form.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-  const cats = form.category && !baseCats.includes(form.category) ? [form.category, ...baseCats] : baseCats;
+  const baseCats = form.type === "income" ? income : expense;
+  const cats =
+    form.category && !baseCats.some((c) => c.toLowerCase() === form.category.toLowerCase())
+      ? [form.category, ...baseCats]
+      : baseCats;
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const setType = (type) =>
-    setForm({ ...form, type, category: "", toAccount: type === "transfer" ? form.toAccount : "" });
+    setForm({
+      ...form, type, category: "",
+      toAccount: type === "transfer" ? form.toAccount : "",
+      hasFee: type === "transfer" ? form.hasFee : false,
+      fee: type === "transfer" ? form.fee : "",
+    });
+
+  const accountLabel = (a) => `${a.name} · ${formatMoney(a.currentBalance)}`;
+  const totalOut = Number(form.amount || 0) + (form.hasFee ? Number(form.fee || 0) : 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (isTransfer && form.hasFee && !(Number(form.fee) > 0)) return setError("Enter the transfer fee amount");
     setSaving(true);
     const payload = {
-      ...form,
+      type: form.type,
       amount: Number(form.amount),
+      category: isTransfer ? "" : form.category,
+      description: form.description,
+      date: toStored(form.date),
       account: form.account || null,
       toAccount: isTransfer ? form.toAccount || null : null,
+      fee: isTransfer && form.hasFee ? Number(form.fee) : 0,
     };
     try {
       if (editing) await api.put(`/transactions/${editing._id}`, payload);
@@ -72,72 +113,125 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
-        className="max-h-[92vh] w-full space-y-3 overflow-y-auto rounded-t-3xl bg-white p-6 text-left sm:max-w-md sm:rounded-3xl"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">{editing ? "Edit transaction" : "Add transaction"}</h3>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100" aria-label="Close">
-            <X size={20} />
-          </button>
-        </div>
+    <>
+      <Modal open={open} onClose={onClose} title={editing ? "Edit transaction" : "Add transaction"} closeOnEsc={!catOpen}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
 
-        {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
-
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
-          {TYPES.map(([value, label]) => (
-            <button
-              type="button"
-              key={value}
-              onClick={() => setType(value)}
-              className={`rounded-lg py-2 text-sm font-medium ${
-                form.type === value ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <input name="amount" type="number" step="0.01" min="0.01" placeholder="Amount" value={form.amount}
-          onChange={handleChange} required className={field} />
-
-        {!isTransfer && (
-          <select name="category" value={form.category} onChange={handleChange} required className={field}>
-            <option value="" disabled>Select category</option>
-            {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        )}
-
-        <select name="account" value={form.account} onChange={handleChange} required={isTransfer} className={field}>
-          <option value="">{isTransfer ? "From account" : "No account (optional)"}</option>
-          {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
-        </select>
-
-        {isTransfer && (
-          <select name="toAccount" value={form.toAccount} onChange={handleChange} required className={field}>
-            <option value="">To account</option>
-            {accounts.filter((a) => a._id !== form.account).map((a) => (
-              <option key={a._id} value={a._id}>{a.name}</option>
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+            {TYPES.map(([value, label, Icon, color]) => (
+              <button type="button" key={value} onClick={() => setType(value)}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium ${
+                  form.type === value ? `bg-white shadow-sm ${color}` : "text-slate-500"
+                }`}>
+                <Icon size={16} /> {label}
+              </button>
             ))}
-          </select>
-        )}
-        {isTransfer && accounts.length < 2 && (
-          <p className="text-sm text-amber-600">You need at least two accounts to make a transfer. Create them in the Accounts tab.</p>
-        )}
+          </div>
 
-        <input name="description" placeholder="Description (optional)" value={form.description}
-          onChange={handleChange} className={field} />
-        <input name="date" type="date" value={form.date} onChange={handleChange} required className={field} />
+          <Field icon={Banknote} label="Amount">
+            <input name="amount" type="number" step="0.01" min="0.01" placeholder="0.00" value={form.amount}
+              onChange={handleChange} required className={`${field} text-lg`} />
+          </Field>
 
-        <button type="submit" disabled={saving}
-          className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">
-          {saving ? "Saving..." : editing ? "Save changes" : "Add transaction"}
-        </button>
-      </form>
-    </div>
+          {!isTransfer && (
+            <>
+              <Field icon={Landmark} label="Account">
+                <select name="account" value={form.account} onChange={handleChange}
+                  required={accounts.length > 0} className={field}>
+                  <option value="" disabled={accounts.length > 0}>
+                    {accounts.length > 0 ? "Select account" : "No accounts yet"}
+                  </option>
+                  {accounts.map((a) => <option key={a._id} value={a._id}>{accountLabel(a)}</option>)}
+                </select>
+                {accounts.length === 0 && (
+                  <p className="mt-1 text-sm text-amber-600">
+                    <Link to="/accounts" onClick={onClose} className="font-medium underline">Create an account</Link> so this
+                    {form.type === "income" ? " income is added to" : " expense is taken from"} it.
+                  </p>
+                )}
+              </Field>
+
+              <Field icon={Tag} label="Category">
+                <div className="flex gap-2">
+                  <select name="category" value={form.category} onChange={handleChange} required className={`${field} min-w-0`}>
+                    <option value="" disabled>Select category</option>
+                    {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setCatOpen(true)} title="Add category" aria-label="Add category"
+                    className="shrink-0 rounded-xl bg-indigo-50 px-3 text-indigo-600 hover:bg-indigo-100">
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </Field>
+            </>
+          )}
+
+          {isTransfer && (
+            <>
+              <Field icon={Landmark} label="From account">
+                <select name="account" value={form.account} onChange={handleChange} required className={field}>
+                  <option value="" disabled>Select an account</option>
+                  {accounts.map((a) => <option key={a._id} value={a._id}>{accountLabel(a)}</option>)}
+                </select>
+              </Field>
+
+              <Field icon={ArrowLeftRight} label="To account">
+                <select name="toAccount" value={form.toAccount} onChange={handleChange} required className={field}>
+                  <option value="" disabled>Select destination account</option>
+                  {accounts.filter((a) => a._id !== form.account).map((a) => (
+                    <option key={a._id} value={a._id}>{accountLabel(a)}</option>
+                  ))}
+                </select>
+                {accounts.length < 2 && (
+                  <p className="mt-1 text-sm text-amber-600">You need at least two accounts. Create them in the Accounts tab.</p>
+                )}
+              </Field>
+
+              <div className="rounded-xl bg-slate-50 p-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+                  <input type="checkbox" checked={form.hasFee}
+                    onChange={(e) => setForm({ ...form, hasFee: e.target.checked, fee: e.target.checked ? form.fee : "" })}
+                    className="h-4 w-4 accent-indigo-600" />
+                  <Receipt size={15} className="text-slate-400" /> This transfer has a fee
+                </label>
+                {form.hasFee && (
+                  <div className="mt-3 space-y-1">
+                    <input name="fee" type="number" step="0.01" min="0.01" placeholder="Transfer fee amount"
+                      value={form.fee} onChange={handleChange} required className={field} />
+                    <p className="text-xs text-slate-500">
+                      The fee is taken from the source account too. Total deducted:{" "}
+                      <span className="font-semibold text-slate-700">{formatMoney(totalOut)}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          <Field icon={FileText} label="Description">
+            <input name="description" placeholder="Optional note" value={form.description}
+              onChange={handleChange} className={field} />
+          </Field>
+
+          <Field icon={CalendarClock} label="Date & time">
+            <input name="date" type="datetime-local" value={form.date} onChange={handleChange} required className={field} />
+          </Field>
+
+          <button type="submit" disabled={saving}
+            className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">
+            {saving ? "Saving..." : editing ? "Save changes" : "Add transaction"}
+          </button>
+        </form>
+      </Modal>
+
+      <CategoryModal
+        open={catOpen}
+        type={form.type === "income" ? "income" : "expense"}
+        existing={baseCats}
+        onClose={() => setCatOpen(false)}
+        onCreated={(name) => { setForm((f) => ({ ...f, category: name })); reload(); }}
+      />
+    </>
   );
 }
