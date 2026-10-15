@@ -19,7 +19,7 @@ function monthlyNeeded(g) {
   return (g.target - g.saved) / Math.max(1, Math.ceil(days / 30));
 }
 
-export default function SavingsGoalsPanel({ onChanged }) {
+export default function SavingsGoalsPanel({ onChanged, onLoaded }) {
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
 
@@ -38,8 +38,8 @@ export default function SavingsGoalsPanel({ onChanged }) {
   const [toDelete, setToDelete] = useState(null);
 
   const load = useCallback(
-    () => api.get("/goals").then(({ data }) => setItems(data)).catch(() => setError("Could not load goals")),
-    []
+    () => api.get("/goals").then(({ data }) => { setItems(data); onLoaded?.(data); }).catch(() => setError("Could not load goals")),
+    [onLoaded]
   );
   useEffect(() => { load(); }, [load]);
 
@@ -121,7 +121,9 @@ export default function SavingsGoalsPanel({ onChanged }) {
 
       <ul className="space-y-5">
         {items.map((g) => {
-          const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+          const raw = (g.saved / g.target) * 100;
+          const pct = Math.min(100, raw);
+          const pctLabel = raw > 0 && raw < 1 ? raw.toFixed(1) : Math.round(pct);
           const done = g.saved >= g.target;
           const need = monthlyNeeded(g);
           return (
@@ -136,10 +138,10 @@ export default function SavingsGoalsPanel({ onChanged }) {
                 </div>
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div className={`h-full ${done ? "bg-green-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
+                <div className={`h-full ${done ? "bg-green-500" : "bg-indigo-500"}`} style={{ width: `${raw > 0 ? Math.max(2, pct) : 0}%` }} />
               </div>
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm text-slate-600">{formatMoney(g.saved)} of {formatMoney(g.target)} ({pct}%)</span>
+                <span className="text-sm text-slate-600">{formatMoney(g.saved)} of {formatMoney(g.target)} ({pctLabel}%)</span>
                 <button onClick={() => openFunds(g)}
                   className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700">
                   <PiggyBank size={16} /> Add savings

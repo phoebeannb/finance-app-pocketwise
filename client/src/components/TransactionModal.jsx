@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Banknote, Landmark, Tag,
-  FileText, CalendarClock, Receipt, Plus,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import api from "../api/axios";
 import useCategories from "../hooks/useCategories";
 import { formatMoney } from "../utils/format";
@@ -17,20 +14,18 @@ const blank = () => ({
 });
 
 const TYPES = [
-  ["income", "Income", ArrowDownLeft, "text-green-600"],
-  ["expense", "Expense", ArrowUpRight, "text-red-600"],
-  ["transfer", "Transfer", ArrowLeftRight, "text-indigo-600"],
+  ["income", "Income", "text-green-600"],
+  ["expense", "Expense", "text-red-600"],
+  ["transfer", "Transfer", "text-indigo-600"],
 ];
 
 const field =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100";
 
-function Field({ icon: Icon, label, children }) {
+function Field({ label, children }) {
   return (
     <div>
-      <span className="mb-1 flex items-center gap-1.5 text-sm font-medium text-slate-700">
-        <Icon size={15} className="text-slate-400" /> {label}
-      </span>
+      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
       {children}
     </div>
   );
@@ -62,7 +57,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
         fee: editing.fee > 0 ? editing.fee : "",
       });
     } else {
-      setForm(blank()); // date and time default to right now
+      setForm(blank());
     }
   }, [open, editing, reload]);
 
@@ -119,24 +114,22 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
 
           <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
-            {TYPES.map(([value, label, Icon, color]) => (
+            {TYPES.map(([value, label, color]) => (
               <button type="button" key={value} onClick={() => setType(value)}
-                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium ${
-                  form.type === value ? `bg-white shadow-sm ${color}` : "text-slate-500"
-                }`}>
-                <Icon size={16} /> {label}
+                className={`rounded-lg py-2 text-sm font-medium ${form.type === value ? `bg-white shadow-sm ${color}` : "text-slate-500"}`}>
+                {label}
               </button>
             ))}
           </div>
 
-          <Field icon={Banknote} label="Amount">
+          <Field label="Amount">
             <input name="amount" type="number" step="0.01" min="0.01" placeholder="0.00" value={form.amount}
-              onChange={handleChange} required className={`${field} text-lg`} />
+              onChange={handleChange} required autoFocus className={`${field} text-lg`} />
           </Field>
 
           {!isTransfer && (
             <>
-              <Field icon={Landmark} label="Account">
+              <Field label="Account">
                 <select name="account" value={form.account} onChange={handleChange}
                   required={accounts.length > 0} className={field}>
                   <option value="" disabled={accounts.length > 0}>
@@ -152,7 +145,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
                 )}
               </Field>
 
-              <Field icon={Tag} label="Category">
+              <Field label="Category">
                 <div className="flex gap-2">
                   <select name="category" value={form.category} onChange={handleChange} required className={`${field} min-w-0`}>
                     <option value="" disabled>Select category</option>
@@ -169,14 +162,14 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
 
           {isTransfer && (
             <>
-              <Field icon={Landmark} label="From account">
+              <Field label="From account">
                 <select name="account" value={form.account} onChange={handleChange} required className={field}>
                   <option value="" disabled>Select an account</option>
                   {accounts.map((a) => <option key={a._id} value={a._id}>{accountLabel(a)}</option>)}
                 </select>
               </Field>
 
-              <Field icon={ArrowLeftRight} label="To account">
+              <Field label="To account">
                 <select name="toAccount" value={form.toAccount} onChange={handleChange} required className={field}>
                   <option value="" disabled>Select destination account</option>
                   {accounts.filter((a) => a._id !== form.account).map((a) => (
@@ -193,7 +186,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
                   <input type="checkbox" checked={form.hasFee}
                     onChange={(e) => setForm({ ...form, hasFee: e.target.checked, fee: e.target.checked ? form.fee : "" })}
                     className="h-4 w-4 accent-indigo-600" />
-                  <Receipt size={15} className="text-slate-400" /> This transfer has a fee
+                  This transfer has a fee
                 </label>
                 {form.hasFee && (
                   <div className="mt-3 space-y-1">
@@ -209,12 +202,12 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
             </>
           )}
 
-          <Field icon={FileText} label="Description">
+          <Field label="Description">
             <input name="description" placeholder="Optional note" value={form.description}
               onChange={handleChange} className={field} />
           </Field>
 
-          <Field icon={CalendarClock} label="Date & time">
+          <Field label="Date & time">
             <input name="date" type="datetime-local" value={form.date} onChange={handleChange} required className={field} />
           </Field>
 

@@ -183,7 +183,7 @@ export default function Accounts() {
 
       <ConfirmModal
         open={!!toDelete}
-        message={`Delete "${toDelete?.name}"? Past transactions stay, but they won't be linked to this account anymore.`}
+        message={`Delete "${toDelete?.name}"?`}
         onClose={() => setToDelete(null)}
         onConfirm={async () => { await api.delete(`/accounts/${toDelete._id}`); load(); }}
       />

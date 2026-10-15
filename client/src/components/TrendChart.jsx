@@ -25,7 +25,7 @@ export default function TrendChart({ data, series, kind = "bar" }) {
           <LineChart {...common}>
             {axes}
             {series.map((s) => (
-              <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.color} strokeWidth={2.5} dot={{ r: 3 }} />
+              <Line key={s.key} type="linear" dataKey={s.key} name={s.name} stroke={s.color} strokeWidth={2.5} dot={{ r: 3 }} />
             ))}
           </LineChart>
         ) : (

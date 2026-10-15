@@ -12,5 +12,8 @@ export const toInput = (iso) => iso.slice(0, 16);
 export const fmtDate = (iso) =>
   new Date(iso).toLocaleDateString("en-PH", { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" });
 
-export const fmtDateTime = (iso) =>
-  new Date(iso).toLocaleString("en-PH", { timeZone: "UTC", dateStyle: "medium", timeStyle: "short" });
+export const fmtDateTime = (iso) => {
+  const d = new Date(iso);
+  if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0) return fmtDate(iso);
+  return d.toLocaleString("en-PH", { timeZone: "UTC", dateStyle: "medium", timeStyle: "short" });
+};

@@ -48,14 +48,12 @@ router.put("/:id", async (req, res) => {
 // With an account, the money moves out of / back into that account.
 router.post("/:id/funds", async (req, res) => {
   try {
-    const amount = Number(req.body.amount);
+    const amount = r2(Number(req.body.amount));
     if (!Number.isFinite(amount) || amount === 0)
       return res.status(400).json({ message: "Enter an amount" });
 
     const goal = await Goal.findOne({ _id: req.params.id, user: req.userId });
     if (!goal) return res.status(404).json({ message: "Not found" });
-    if (amount < 0 && -amount > goal.saved)
-      return res.status(400).json({ message: "You can't withdraw more than you've saved" });
 
     const accountId = req.body.account || null;
     if (accountId) {
@@ -69,23 +67,33 @@ router.post("/:id/funds", async (req, res) => {
     let date = req.body.date ? new Date(req.body.date) : new Date();
     if (Number.isNaN(date.getTime())) date = new Date();
 
+    // Step 1: change the goal in one atomic update
+    const filter = { _id: goal._id, user: req.userId };
+    if (amount < 0) filter.saved = { $gte: -amount };
+    const updated = await Goal.findOneAndUpdate(filter, { $inc: { saved: amount } }, { new: true });
+    if (!updated) return res.status(400).json({ message: "You can't withdraw more than you've saved" });
+
+    // Step 2: record it in the account ledger. If this fails, put the goal back.
     if (accountId) {
-      await Transaction.create({
-        user: req.userId,
-        type: "transfer",
-        amount: Math.abs(amount),
-        category: "Savings",
-        description: `${amount > 0 ? "Savings to" : "Savings from"} ${goal.name}`,
-        date,
-        goal: goal._id,
-        account: amount > 0 ? accountId : null,   // deposit: money leaves the account
-        toAccount: amount < 0 ? accountId : null, // withdrawal: money returns to the account
-      });
+      try {
+        await Transaction.create({
+          user: req.userId,
+          type: "transfer",
+          amount: Math.abs(amount),
+          category: "Savings",
+          description: `${amount > 0 ? "Savings to" : "Savings from"} ${goal.name}`,
+          date,
+          goal: goal._id,
+          account: amount > 0 ? accountId : null,
+          toAccount: amount < 0 ? accountId : null,
+        });
+      } catch (err) {
+        await Goal.updateOne({ _id: goal._id }, { $inc: { saved: -amount } });
+        throw err;
+      }
     }
 
-    goal.saved = Math.max(0, r2(goal.saved + amount));
-    await goal.save();
-    res.json(goal);
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

@@ -1,4 +1,27 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Accent color. The class names still say "indigo", but this is the palette you get. Change these to rebrand the whole app. */
+  --color-indigo-50: #f3f1ff;
+  --color-indigo-100: #e8e4ff;
+  --color-indigo-200: #d3ccff;
+  --color-indigo-300: #b5a8ff;
+  --color-indigo-400: #9380ff;
+  --color-indigo-500: #7a62fb;
+  --color-indigo-600: #6747f0;
+  --color-indigo-700: #5836d6;
+  --color-indigo-800: #482cae;
+  --color-indigo-900: #3a2688;
+  --color-indigo-950: #231659;
+
+  --shadow-sm: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06);
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+}
 
 html, body, #root {
   width: 100%;
@@ -12,6 +35,43 @@ html, body, #root {
 
 body {
   display: block;
-  background: #f1f5f9;
-  color: #1e293b;
+  background: #f6f7fb;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+@layer base {
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--color-indigo-500);
+    outline-offset: 2px;
+  }
+  /* Stops iPhones from zooming in when you tap a field */
+  @media (max-width: 640px) {
+    input, select, textarea { font-size: 16px; }
+  }
+}
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.animate-fade { animation: fade 0.2s ease-out both; }
+.animate-rise { animation: rise 0.28s ease-out both; }
+.animate-pop { animation: pop 0.22s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* No black box around charts */
+.recharts-wrapper,
+.recharts-wrapper *,
+.recharts-surface {
+  outline: none !important;
 }

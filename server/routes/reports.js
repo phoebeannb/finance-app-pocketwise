@@ -2,6 +2,7 @@ import express from "express";
 import Transaction from "../models/Transaction.js";
 import auth from "../middleware/auth.js";
 import { startOfToday, addDays } from "../utils/dates.js";
+import { largestRemainder } from "../utils/percent.js";
 
 const router = express.Router();
 router.use(auth);
@@ -90,14 +91,13 @@ async function run(userId, period) {
     s.savings = r2(s.income - s.expenses);
   }
 
-  const totalExpenses = Object.values(cats).reduce((a, b) => a + b, 0);
-  const categories = Object.entries(cats)
-    .map(([category, total]) => ({
-      category,
-      total: r2(total),
-      percent: totalExpenses ? Math.round((total / totalExpenses) * 100) : 0,
-    }))
-    .sort((a, b) => b.total - a.total);
+    const entries = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+    const pcts = largestRemainder(entries.map(([, total]) => total));
+    const categories = entries.map(([category, total], i) => ({
+    category,
+        total: r2(total),
+        percent: pcts[i],
+  }));
 
   return { series, categories };
 }

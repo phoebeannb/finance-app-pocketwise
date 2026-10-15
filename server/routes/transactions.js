@@ -71,7 +71,12 @@ router.get("/", async (req, res) => {
 // Overview summary. Transfers are not income or expense, but transfer FEES are expenses.
 router.get("/summary", async (req, res) => {
   const match = { user: new mongoose.Types.ObjectId(req.userId) };
-  if (req.query.period === "week") match.date = { $gte: addDays(startOfToday(), -6) };
+  const m = /^(\d{4})-(\d{2})$/.exec(req.query.month || "");
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    match.date = { $gte: new Date(Date.UTC(y, mo, 1)), $lt: new Date(Date.UTC(y, mo + 1, 1)) };
+  } else if (req.query.period === "week") match.date = { $gte: addDays(startOfToday(), -6) };
   else if (req.query.period === "month") match.date = { $gte: startOfThisMonth() };
 
   const byType = await Transaction.aggregate([
@@ -92,6 +97,58 @@ router.get("/summary", async (req, res) => {
   const income = byType.find((t) => t._id === "income")?.total || 0;
   const expenses = r2((byType.find((t) => t._id === "expense")?.total || 0) + feeTotal);
   res.json({ income, expenses, balance: r2(income - expenses), byCategory });
+});
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+router.get("/search", async (req, res) => {
+  try {
+    const { q, type, category, account, from, to, min, max } = req.query;
+    const and = [{ user: new mongoose.Types.ObjectId(req.userId) }];
+
+    if (TYPES.includes(type)) and.push({ type });
+    if (category) and.push({ category: new RegExp(`^${escapeRegex(String(category).slice(0, 60))}$`, "i") });
+    if (isId(account)) {
+      const a = new mongoose.Types.ObjectId(account);
+      and.push({ $or: [{ account: a }, { toAccount: a }] });
+    }
+    const text = String(q || "").trim().slice(0, 60);
+    if (text) {
+      const rx = new RegExp(escapeRegex(text), "i");
+      and.push({ $or: [{ description: rx }, { category: rx }] });
+    }
+    if (YMD.test(from || "")) and.push({ date: { $gte: new Date(`${from}T00:00:00.000Z`) } });
+    if (YMD.test(to || "")) and.push({ date: { $lt: new Date(new Date(`${to}T00:00:00.000Z`).getTime() + 86400000) } });
+    if (min !== undefined && min !== "" && Number.isFinite(Number(min))) and.push({ amount: { $gte: Number(min) } });
+    if (max !== undefined && max !== "" && Number.isFinite(Number(max))) and.push({ amount: { $lte: Number(max) } });
+
+    const match = { $and: and };
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
+    const total = await Transaction.countDocuments(match);
+    const pages = Math.ceil(total / pageSize);
+    const page = Math.min(Math.max(1, parseInt(req.query.page, 10) || 1), Math.max(1, pages));
+
+    const items = await Transaction.find(match)
+      .sort({ date: -1, createdAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .populate("account", "name type")
+      .populate("toAccount", "name type");
+
+    const sums = await Transaction.aggregate([
+      { $match: match },
+      { $group: { _id: "$type", total: { $sum: "$amount" } } },
+    ]);
+    const totals = {
+      income: r2(sums.find((s) => s._id === "income")?.total || 0),
+      expenses: r2(sums.find((s) => s._id === "expense")?.total || 0), // transfers aren't counted
+    };
+
+    res.json({ items, total, page, pageSize, pages, totals });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 router.post("/", async (req, res) => {

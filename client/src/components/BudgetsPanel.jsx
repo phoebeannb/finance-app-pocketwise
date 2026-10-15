@@ -69,7 +69,7 @@ export default function BudgetsPanel({ refreshKey = 0 }) {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Budgets</h3>
-          <p className="text-xs text-slate-500">Monthly limits, reset on the 1st</p>
+          <p className="text-xs text-slate-500"></p>
         </div>
         <button onClick={openAdd}
           className="flex items-center gap-1 rounded-lg bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-100">

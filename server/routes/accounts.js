@@ -69,8 +69,19 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const account = await Account.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const account = await Account.findOne({ _id: req.params.id, user: req.userId });
     if (!account) return res.status(404).json({ message: "Not found" });
+
+    const count = await Transaction.countDocuments({
+      user: req.userId,
+      $or: [{ account: account._id }, { toAccount: account._id }],
+    });
+    if (count > 0)
+      return res.status(400).json({
+        message: `This account has ${count} transaction${count === 1 ? "" : "s"}. Delete them first so your balances stay correct.`,
+      });
+
+    await account.deleteOne();
     res.json({ message: "Deleted" });
   } catch {
     res.status(404).json({ message: "Not found" });

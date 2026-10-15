@@ -6,11 +6,13 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
+import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
+import Budgets from "./pages/Budgets";
+import Bills from "./pages/Bills";
+import Goals from "./pages/Goals";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
-import Accounts from "./pages/Accounts";
-
 
 export default function App() {
   return (
@@ -22,11 +24,13 @@ export default function App() {
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/accounts" element={<Accounts />} />
         <Route path="/transactions" element={<Transactions />} />
+        <Route path="/budgets" element={<Budgets />} />
+        <Route path="/bills" element={<Bills />} />
+        <Route path="/goals" element={<Goals />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/accounts" element={<Accounts />} />
-        
       </Route>
 
       <Route path="*" element={<Navigate to="/" />} />

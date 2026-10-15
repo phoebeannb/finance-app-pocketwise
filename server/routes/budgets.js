@@ -10,9 +10,19 @@ router.use(auth);
 
 // Each budget comes back with how much was spent on it this month
 router.get("/", async (req, res) => {
+  const m = /^(\d{4})-(\d{2})$/.exec(req.query.month || "");
+  let from, to;
+  if (m) {
+    from = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1));
+    to = new Date(Date.UTC(Number(m[1]), Number(m[2]), 1));
+  } else {
+    from = startOfThisMonth();
+    to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
+  }
+
   const budgets = await Budget.find({ user: req.userId }).sort({ createdAt: 1 }).lean();
   const spent = await Transaction.aggregate([
-    { $match: { user: new mongoose.Types.ObjectId(req.userId), type: "expense", date: { $gte: startOfThisMonth() } } },
+    { $match: { user: new mongoose.Types.ObjectId(req.userId), type: "expense", date: { $gte: from, $lt: to } } },
     { $group: { _id: { $toLower: { $trim: { input: { $ifNull: ["$category", ""] } } } }, total: { $sum: "$amount" } } },
   ]);
   const map = Object.fromEntries(spent.map((s) => [s._id, s.total]));
