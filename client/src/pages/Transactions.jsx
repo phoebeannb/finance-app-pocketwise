@@ -104,7 +104,7 @@ export default function Transactions() {
       {error && <ErrorBar message={error} onRetry={load} />}
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-60 flex-1">
+        <div className="relative w-full min-w-0 flex-1 sm:min-w-60">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={filters.q} onChange={(e) => update({ q: e.target.value })} placeholder="Search description or category"
             className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />

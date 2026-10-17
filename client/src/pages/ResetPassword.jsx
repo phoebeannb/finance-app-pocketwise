@@ -25,11 +25,11 @@ export default function ResetPassword() {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 360, margin: "80px auto", display: "grid", gap: 12 }}>
+    <form onSubmit={handleSubmit} style={{ width: "calc(100% - 2rem)", maxWidth: 360, margin: "clamp(32px, 10vh, 80px) auto 0", display: "grid", gap: 12 }}>
       <h2>Set a new password</h2>
       {error && <p style={{ color: "crimson" }}>{error}</p>}
-      <input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-      <input type="password" placeholder="Confirm password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+      <input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ minWidth: 0 }} />
+      <input type="password" placeholder="Confirm password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required style={{ minWidth: 0 }} />
       <button type="submit" disabled={!passwordOk}>
         Update password
       </button>

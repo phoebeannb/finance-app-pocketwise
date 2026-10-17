@@ -42,6 +42,21 @@ export default function Layout() {
   const [params, setParams] = useSearchParams();
   const close = () => setOpen(false);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") close();
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   // Opened from the installed app's shortcut (/?add=1)
   useEffect(() => {
     if (params.get("add")) {
@@ -57,7 +72,8 @@ export default function Layout() {
     <div className="min-h-screen w-full bg-[#f4f5f7] text-slate-900 lg:flex">
       <header className="sticky top-0 z-30 flex items-center justify-between bg-zinc-950 px-4 py-3 text-white lg:hidden">
         <Brand />
-        <button onClick={() => setOpen(true)} className="rounded-lg bg-white/10 p-2 hover:bg-white/15" aria-label="Open menu">
+        <button onClick={() => setOpen(true)} className="rounded-lg bg-white/10 p-2 hover:bg-white/15"
+          aria-label="Open menu" aria-expanded={open} aria-controls="app-navigation">
           <Menu size={20} />
         </button>
       </header>
@@ -65,9 +81,11 @@ export default function Layout() {
       {open && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={close} />}
 
       <aside
+        id="app-navigation"
         className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto bg-zinc-950 p-4 text-white transition-transform duration-200
           ${open ? "translate-x-0" : "-translate-x-full"}
           lg:sticky lg:top-0 lg:h-screen lg:translate-x-0`}
+        aria-label="Main navigation"
       >
         <div className="mb-8 flex items-center justify-between px-1">
           <Brand />
@@ -110,7 +128,7 @@ export default function Layout() {
       <button
         onClick={() => setAddOpen(true)}
         aria-label="Quick add transaction"
-        className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-md hover:bg-indigo-700 lg:hidden"
+        className="quick-add-button fixed z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-md hover:bg-indigo-700 lg:hidden"
       >
         <Plus size={26} />
       </button>

@@ -44,9 +44,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+#root {
+  min-height: 100dvh;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: #c5cad3 transparent;
+}
+
+.quick-add-button {
+  right: calc(1.25rem + env(safe-area-inset-right));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom));
 }
 
 @layer base {
