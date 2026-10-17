@@ -143,7 +143,7 @@ export default function Goals() {
       {goals && (
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <Stat label="Saved across all goals" value={formatMoney(saved)} color="text-green-600" />
+            <Stat label="Total saved" value={formatMoney(saved)} color="text-green-600" />
             <Stat label="Total target" value={formatMoney(target)} />
             <Stat label="Overall progress" value={`${pctText(overall)}%`} hint={`${reached} of ${list.length} goal${list.length === 1 ? "" : "s"} reached`} />
           </div>
