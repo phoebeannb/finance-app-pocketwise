@@ -6,25 +6,17 @@ import Modal from "../components/Modal";
 import ConfirmModal from "../components/ConfirmModal";
 import BankPicker from "../components/BankPicker";
 import AccountDetails from "../components/AccountDetails";
+import { IconButton, Stat, TableCard, ErrorBar } from "../components/ui";
 
 const TYPES = ["Bank Account", "Credit Card", "Loan", "Investment", "Asset", "Other"];
 const LIABILITIES = ["Credit Card", "Loan"];
 const emptyForm = { name: "", type: "Bank Account", provider: "", balance: "", notes: "" };
 
 const field =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100";
-
-function Card({ label, value, color = "text-slate-800" }) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className={`mt-1 truncate text-2xl font-semibold ${color}`}>{value}</div>
-    </div>
-  );
-}
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 
 export default function Accounts() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(null);
   const [error, setError] = useState("");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -35,22 +27,13 @@ export default function Accounts() {
   const [viewing, setViewing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
 
-  const load = async () => {
-    const { data } = await api.get("/accounts");
-    setItems(data);
-  };
+  const load = () =>
+    api.get("/accounts")
+      .then(({ data }) => { setItems(data); setError(""); })
+      .catch((err) => setError(err.response ? "Could not load accounts." : "Can't reach the server. Make sure it's running, then try again."));
+  useEffect(() => { load(); }, []);
 
-  useEffect(() => {
-    load().catch(() => setError("Could not load accounts"));
-  }, []);
-
-  const openCreate = () => {
-    setEditing(null);
-    setForm(emptyForm);
-    setFormError("");
-    setFormOpen(true);
-  };
-
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(""); setFormOpen(true); };
   const openEdit = (a) => {
     setViewing(null);
     setEditing(a);
@@ -80,75 +63,64 @@ export default function Accounts() {
     }
   };
 
-  const assets = items.filter((a) => !LIABILITIES.includes(a.type)).reduce((s, a) => s + a.currentBalance, 0);
-  const liabilities = items.filter((a) => LIABILITIES.includes(a.type)).reduce((s, a) => s + a.currentBalance, 0);
+  const list = items || [];
+  const sorted = [...list].sort((a, b) => TYPES.indexOf(a.type) - TYPES.indexOf(b.type) || a.name.localeCompare(b.name));
+  const assets = list.filter((a) => !LIABILITIES.includes(a.type)).reduce((s, a) => s + a.currentBalance, 0);
+  const liabilities = list.filter((a) => LIABILITIES.includes(a.type)).reduce((s, a) => s + a.currentBalance, 0);
   const netWorth = assets - liabilities;
   const isLiability = LIABILITIES.includes(form.type);
 
   return (
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold">Accounts</h2>
+        <h2 className="text-2xl font-semibold">Accounts</h2>
         <button onClick={openCreate}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700">
-          <Plus size={18} /> Create Account
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+          <Plus size={16} /> Create Account
         </button>
       </div>
 
-      {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+      {error && <ErrorBar message={error} onRetry={load} />}
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card label="Total Assets" value={formatMoney(assets)} color="text-green-600" />
-        <Card label="Total Liabilities" value={formatMoney(liabilities)} color="text-red-600" />
-        <Card label="Net Worth" value={formatMoney(netWorth)} color={netWorth < 0 ? "text-red-600" : "text-indigo-600"} />
+        <Stat label="Total assets" value={formatMoney(assets)} color="text-green-600" />
+        <Stat label="Total liabilities" value={formatMoney(liabilities)} color="text-red-600" />
+        <Stat label="Net worth" value={formatMoney(netWorth)} color={netWorth < 0 ? "text-red-600" : "text-slate-900"} />
       </div>
 
-      <div className="space-y-4">
-        {items.length === 0 && (
-          <div className="rounded-2xl bg-white p-5 text-slate-500 shadow-sm">No accounts yet. Click “Create Account” to add your first one.</div>
-        )}
+      <TableCard>
+        <table className="data-table">
+          <thead>
+            <tr><th>Account</th><th>Type</th><th>Bank / E-wallet</th><th className="num">Balance</th><th className="actions" /></tr>
+          </thead>
+          <tbody>
+            {sorted.map((a) => (
+              <tr key={a._id}>
+                <td>
+                  <div className="font-medium">{a.name}</div>
+                  {a.notes && <div className="max-w-60 truncate text-xs text-slate-500">{a.notes}</div>}
+                </td>
+                <td className="text-slate-600">{a.type}</td>
+                <td className="text-slate-600">{a.provider || "—"}</td>
+                <td className={`num font-semibold ${LIABILITIES.includes(a.type) ? "text-red-600" : ""}`}>{formatMoney(a.currentBalance)}</td>
+                <td className="actions">
+                  <IconButton icon={Eye} label="View details" onClick={() => setViewing(a)} />
+                  <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(a)} />
+                  <IconButton icon={Trash2} label="Delete" danger onClick={() => setToDelete(a)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {items && items.length === 0 && <p className="p-6 text-center text-slate-500">No accounts yet. Click “Create Account” to add your first one.</p>}
+        {!items && !error && <p className="p-6 text-center text-slate-500">Loading...</p>}
+      </TableCard>
 
-        {TYPES.map((type) => {
-          const group = items.filter((a) => a.type === type);
-          if (group.length === 0) return null;
-          return (
-            <div key={type} className="rounded-2xl bg-white p-5 shadow-sm">
-              <h3 className="mb-2 text-lg font-semibold">{type}</h3>
-              <ul className="divide-y divide-slate-100">
-                {group.map((a) => (
-                  <li key={a._id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="font-medium">{a.name}</div>
-                      <div className="truncate text-sm text-slate-500">{[a.provider, a.notes].filter(Boolean).join(" · ")}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`mr-1 font-semibold ${LIABILITIES.includes(a.type) ? "text-red-600" : "text-slate-800"}`}>
-                        {formatMoney(a.currentBalance)}
-                      </span>
-                      <button onClick={() => setViewing(a)} className="flex items-center gap-1 rounded-lg bg-indigo-50 px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-100">
-                        <Eye size={14} /> View
-                      </button>
-                      <button onClick={() => openEdit(a)} className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1 text-sm hover:bg-slate-200">
-                        <Pencil size={14} /> Edit
-                      </button>
-                      <button onClick={() => setToDelete(a)} className="flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1 text-sm text-red-600 hover:bg-red-100">
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Create / edit popup */}
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editing ? "Edit account" : "Create account"}>
         <form onSubmit={handleSubmit} className="space-y-3">
-          {formError && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{formError}</p>}
+          {formError && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{formError}</p>}
 
-          <label className="block text-sm font-medium text-slate-700">Account Type</label>
+          <label className="block text-sm font-medium text-slate-700">Account type</label>
           <select name="type" value={form.type} onChange={handleChange} className={field}>
             {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -167,12 +139,12 @@ export default function Accounts() {
             value={form.balance} onChange={handleChange} className={field} />
           <input name="notes" placeholder="Notes (optional)" value={form.notes} onChange={handleChange} className={field} />
 
-          <button type="submit" className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700">
+          <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
             {editing ? "Save changes" : "Create account"}
           </button>
           {editing && (
             <button type="button" onClick={() => { setFormOpen(false); setToDelete(editing); }}
-              className="w-full rounded-xl bg-red-50 py-2.5 font-medium text-red-600 hover:bg-red-100">
+              className="w-full rounded-lg border border-red-200 py-2.5 font-medium text-red-600 hover:bg-red-50">
               Delete account
             </button>
           )}

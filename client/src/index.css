@@ -1,26 +1,30 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 
-  /* Accent color. The class names still say "indigo", but this is the palette you get. Change these to rebrand the whole app. */
-  --color-indigo-50: #f3f1ff;
-  --color-indigo-100: #e8e4ff;
-  --color-indigo-200: #d3ccff;
-  --color-indigo-300: #b5a8ff;
-  --color-indigo-400: #9380ff;
-  --color-indigo-500: #7a62fb;
-  --color-indigo-600: #6747f0;
-  --color-indigo-700: #5836d6;
-  --color-indigo-800: #482cae;
-  --color-indigo-900: #3a2688;
-  --color-indigo-950: #231659;
+  --color-indigo-50: #eff5fc;
+  --color-indigo-100: #dbe8f8;
+  --color-indigo-200: #bcd3f0;
+  --color-indigo-300: #8fb4e4;
+  --color-indigo-400: #5d90d3;
+  --color-indigo-500: #3a73bd;
+  --color-indigo-600: #255ca3;
+  --color-indigo-700: #1d4a85;
+  --color-indigo-800: #193d6b;
+  --color-indigo-900: #173357;
+  --color-indigo-950: #0e2038;
 
-  --shadow-sm: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06);
-  --radius-xl: 0.875rem;
-  --radius-2xl: 1.25rem;
-  --radius-3xl: 1.75rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
+  --radius-3xl: 0.625rem;
+
+  --shadow-sm: 0 1px 1px 0 rgb(0 0 0 / 0.04);
+  --shadow-md: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+  --shadow-xl: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+  --shadow-2xl: 0 8px 24px 0 rgb(0 0 0 / 0.18);
 }
 
 html, body, #root {
@@ -35,14 +39,14 @@ html, body, #root {
 
 body {
   display: block;
-  background: #f6f7fb;
-  color: #0f172a;
+  background: #f4f5f7;
+  color: #111827;
   -webkit-font-smoothing: antialiased;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: #c5cad3 transparent;
 }
 
 @layer base {
@@ -57,17 +61,23 @@ body {
   }
 }
 
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes pop { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
-
-.animate-fade { animation: fade 0.2s ease-out both; }
-.animate-rise { animation: rise 0.28s ease-out both; }
-.animate-pop { animation: pop 0.22s ease-out both; }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
+/* Shared table style */
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.data-table th {
+  padding: 0.625rem 0.875rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
+.data-table td { padding: 0.625rem 0.875rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover td { background: #fafbfc; }
+.data-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.data-table .actions { text-align: right; white-space: nowrap; width: 1%; }
 
 /* No black box around charts */
 .recharts-wrapper,

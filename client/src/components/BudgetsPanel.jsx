@@ -65,7 +65,7 @@ export default function BudgetsPanel({ refreshKey = 0 }) {
   };
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white p-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Budgets</h3>

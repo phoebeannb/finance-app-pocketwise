@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+
+const input =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 
 export default function Login() {
   const { login } = useAuth();
@@ -25,76 +29,44 @@ export default function Login() {
     }
   };
 
-  const input =
-    "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100";
-
   return (
-    <div className="grid min-h-screen bg-white text-left lg:grid-cols-2">
-      {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-zinc-950 p-12 text-white lg:flex">
-        <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-indigo-600/30 blur-3xl" />
-        <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-indigo-500/20 blur-3xl" />
-        <div className="relative flex items-center gap-2 text-2xl font-bold">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">₱</span>
+    <div className="grid min-h-screen bg-white lg:grid-cols-2">
+      <div className="hidden flex-col justify-between bg-zinc-950 p-10 text-white lg:flex">
+        <div className="flex items-center gap-2.5 text-lg font-semibold">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-zinc-950"><Wallet size={17} /></span>
           PocketWise
         </div>
-        <div className="relative">
-          <h2 className="text-4xl font-bold leading-tight">
-            Know where your money goes.
-          </h2>
-          <p className="mt-4 max-w-md text-indigo-100">
-            Track income and expenses, see your savings rate, and keep your
-            spending under control, all in one place.
-          </p>
-        </div>
-        <p className="relative text-sm text-indigo-200">© PocketWise</p>
+        <p className="max-w-sm text-2xl font-semibold leading-snug">
+          Keep track of your income, expenses, bills and savings in one place.
+        </p>
+        <p className="text-sm text-zinc-500">© PocketWise</p>
       </div>
 
-      {/* Form panel */}
-      <div className="flex items-center justify-center bg-slate-50 p-6">
-        <form
-          onSubmit={handleSubmit}
-          className="w-full max-w-md space-y-5 rounded-3xl bg-white p-8 shadow-xl shadow-slate-200/60 sm:p-10"
-        >
+      <div className="flex items-center justify-center bg-[#f4f5f7] p-6">
+        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-xl border border-slate-200 bg-white p-8 text-left">
+          <h1 className="text-2xl font-semibold text-slate-900">Log in</h1>
+
+          {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Welcome Back</h1>
-            <p className="mt-1 text-slate-500">Log in to your PocketWise account</p>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <input name="email" type="email" value={form.email} onChange={handleChange} required className={input} />
           </div>
-
-          {error && (
-            <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </p>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
-              <input name="email" type="email" placeholder="you@example.com"
-                value={form.email} onChange={handleChange} required className={input} />
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700">Password</label>
+              <Link to="/forgot-password" className="text-sm text-indigo-600 hover:underline">Forgot password?</Link>
             </div>
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-700">Password</label>
-                <Link to="/forgot-password" className="text-sm font-medium text-indigo-600 hover:underline">
-                  Forgot password?
-                </Link>
-              </div>
-              <input name="password" type="password" placeholder="••••••••"
-                value={form.password} onChange={handleChange} required className={input} />
-            </div>
+            <input name="password" type="password" value={form.password} onChange={handleChange} required className={input} />
           </div>
 
           <button type="submit" disabled={loading}
-            className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:opacity-60">
+            className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
             {loading ? "Logging in..." : "Log in"}
           </button>
 
           <p className="text-center text-sm text-slate-500">
-            No account yet?{" "}
-            <Link to="/register" className="font-semibold text-indigo-600 hover:underline">
-              Create one
-            </Link>
+            No account yet? <Link to="/register" className="font-medium text-indigo-600 hover:underline">Create one</Link>
           </p>
         </form>
       </div>

@@ -192,21 +192,20 @@ export default function ImportModal({ open, onClose, onImported }) {
             onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); }}
             className="flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50 px-4 py-10 text-indigo-700 hover:bg-indigo-100">
             <Upload size={32} />
-            <span className="font-semibold">Choose a CSV file</span>
-            <span className="text-sm text-indigo-600/80">or drop it here</span>
+            <span className="font-semibold">Upload CSV File</span>
+            <span className="text-sm text-indigo-600/80">or Drop Here</span>
           </button>
           <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden"
             onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ""; }} />
           <ul className="mt-4 space-y-1 text-sm text-slate-500">
          <button type="button" onClick={downloadCsvTemplate}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2.5 text-sm font-medium hover:bg-slate-200">
-            <Download size={16} /> Download CSV template
+            <Download size={16} /> Download CSV Template
           </button>
           <ul className="mt-4 space-y-1 text-sm text-slate-500">
-            <li>• The first line must be the column names (the template has them).</li>
-            <li>• Dates like 2026-10-25. Money out goes in <b>Debit</b>, money in goes in <b>Credit</b>.</li>
-            <li>• Delete the 4 sample rows in the template before importing your own.</li>
-            <li>• Up to {MAX_ROWS} rows at a time.</li>
+            <li>• Keep the template’s column headers in the first row.</li>
+            <li>• Use YYYY-MM-DD dates.</li>
+            <li>• Import up to 1,000 rows at a time.</li>
           </ul>
           </ul>
         </div>
@@ -290,7 +289,7 @@ export default function ImportModal({ open, onClose, onImported }) {
           </p>
 
           <div className="max-h-[42vh] overflow-auto rounded-xl border border-slate-200">
-            <div className="min-w-[700px]">
+            <div className="min-w-175">
               <div className={`${GRID} sticky top-0 z-10 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500`}>
                 <input type="checkbox" checked={selected.length === rows.length} onChange={(e) => toggleAll(e.target.checked)} aria-label="Select all" />
                 <span>Date</span><span>Description</span><span className="text-right">Amount</span><span>Category</span>

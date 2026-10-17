@@ -39,7 +39,9 @@ function buildBuckets(period) {
       const d = new Date(Date.UTC(y, m - i, 1));
       buckets.push({
         key: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`,
-        label: `${MONTHS[d.getUTCMonth()]} ${String(d.getUTCFullYear()).slice(2)}`,
+         label: i === 11 || d.getUTCMonth() === 0
+          ? `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+          : MONTHS[d.getUTCMonth()],
         start: d,
       });
     }

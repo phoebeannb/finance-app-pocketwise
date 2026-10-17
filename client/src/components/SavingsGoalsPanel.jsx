@@ -107,7 +107,7 @@ export default function SavingsGoalsPanel({ onChanged, onLoaded }) {
   const acctAfter = acct && n > 0 ? acct.currentBalance + (mode === "add" ? -n : n) : null;
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <div className="rounded-lg border border-slate-200 bg-white p-5">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-lg font-semibold"><Target size={20} className="text-indigo-600" /> Savings Goals</h3>
         <button onClick={openNew}
@@ -150,7 +150,7 @@ export default function SavingsGoalsPanel({ onChanged, onLoaded }) {
               {(g.deadline || need) && (
                 <p className="mt-1 text-xs text-slate-500">
                   {g.deadline && `Due ${new Date(g.deadline).toLocaleDateString()}`}
-                  {need ? ` · save about ${formatMoney(need)}/month to get there` : ""}
+                  {need ? ` · Save ${formatMoney(need)}/month to reach your goal` : ""}
                 </p>
               )}
             </li>

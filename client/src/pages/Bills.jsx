@@ -146,7 +146,6 @@ export default function Bills() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Bills & Subscriptions</h2>
-          <p className="text-sm text-slate-500">On the due date, PocketWise adds the transaction for you.</p>
         </div>
         <button onClick={openAdd}
           className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700">
@@ -167,9 +166,9 @@ export default function Bills() {
       {items && (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="Bills & subscriptions per month" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
-            <Stat label="Due in the next 7 days" value={formatMoney(soonTotal)} hint={`${soon.length} bill${soon.length === 1 ? "" : "s"}`} />
-            <Stat label="Recurring income per month" value={formatMoney(monthlyIncome)} color="text-green-600" />
+            <Stat label="Monthly Expenses" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
+            <Stat label="Upcoming Payments" value={formatMoney(soonTotal)} hint={`${soon.length} bill${soon.length === 1 ? "" : "s"}`} />
+            <Stat label="Monthly Revenue" value={formatMoney(monthlyIncome)} color="text-green-600" />
           </div>
 
           {items.length === 0 ? (

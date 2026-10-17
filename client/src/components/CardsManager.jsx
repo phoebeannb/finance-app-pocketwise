@@ -118,7 +118,7 @@ export default function CardsManager() {
         )}
         {items.map((c) => (
           <div key={c._id}
-            className={`rounded-2xl p-5 text-white shadow-sm ${c.kind === "Credit" ? "bg-linear-to-br from-indigo-600 to-slate-800" : "bg-linear-to-br from-emerald-600 to-slate-800"}`}>
+            className={`rounded-2xl p-5 text-white shadow-sm ${c.kind === "Credit" ? "bg-zinc-900" : "bg-slate-700"}}`}>
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-lg font-semibold">{c.nickname}</div>

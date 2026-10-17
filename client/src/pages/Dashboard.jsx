@@ -1,65 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Plus, Wallet, TrendingUp, TrendingDown, PiggyBank, History, Scale,
-  ChevronLeft, ChevronRight, WifiOff,
-} from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import api from "../api/axios";
-import { useAuth } from "../context/AuthContext";
 import { formatMoney } from "../utils/format";
+import { fmtDateTime } from "../utils/datetime";
 import { largestRemainder } from "../utils/percent";
-import { txTitle, txSubtitle } from "../utils/txDisplay";
+import { monthNow, shiftMonth, monthLabel } from "../utils/months";
+import { txTitle } from "../utils/txDisplay";
+import { txNote, txSign, txColor } from "../utils/txTable";
 import TransactionModal from "../components/TransactionModal";
 import TrendChart from "../components/TrendChart";
 import BudgetsPanel from "../components/BudgetsPanel";
 import SavingsGoalsPanel from "../components/SavingsGoalsPanel";
-import TxIcon from "../components/TxIcon";
 import Skeleton from "../components/Skeleton";
+import { Stat, TableCard, ErrorBar } from "../components/ui";
 
-const COLORS = ["#6747f0", "#16a34a", "#f59e0b", "#dc2626", "#0891b2", "#9333ea", "#64748b"];
+const COLORS = ["#255ca3", "#15803d", "#d97706", "#b91c1c", "#0e7490", "#7e22ce", "#64748b"];
 const SPENDABLE = ["Bank Account", "Other"];
 
-const pad = (n) => String(n).padStart(2, "0");
-const monthNow = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
-};
-const shiftMonth = (m, delta) => {
-  const [y, mo] = m.split("-").map(Number);
-  const d = new Date(Date.UTC(y, mo - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
-};
-const monthLabel = (m) => {
-  const [y, mo] = m.split("-").map(Number);
-  return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString("en-PH", { month: "long", year: "numeric", timeZone: "UTC" });
-};
-const greeting = () => {
-  const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-};
-
-const TONES = {
-  income: "bg-emerald-100 text-emerald-600",
-  expense: "bg-rose-100 text-rose-600",
-  net: "bg-sky-100 text-sky-600",
-  savings: "bg-amber-100 text-amber-600",
-};
-
-function Tile({ icon: Icon, label, value, tone, negative }) {
-  return (
-    <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-      <div className="mb-3 flex items-center gap-2">
-        <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${TONES[tone]}`}><Icon size={15} /></span>
-        <span className="text-xs text-slate-500">{label}</span>
-      </div>
-      <div className={`truncate text-xl font-semibold tracking-tight ${negative ? "text-rose-600" : "text-slate-900"}`}>{value}</div>
-    </div>
-  );
-}
-
 export default function Dashboard() {
-  const { user } = useAuth();
   const [month, setMonth] = useState(monthNow());
   const [summary, setSummary] = useState(null);
   const [accounts, setAccounts] = useState(null);
@@ -83,11 +43,7 @@ export default function Dashboard() {
       setAccounts(a.data);
       setError("");
     } catch (err) {
-      setError(
-        err.response
-          ? "Something went wrong loading your overview."
-          : "Can't reach the server. Make sure it's running, then try again."
-      );
+      setError(err.response ? "Something went wrong loading your overview." : "Can't reach the server. Make sure it's running, then try again.");
     }
   }, [month]);
 
@@ -110,77 +66,63 @@ export default function Dashboard() {
     ? Math.round(((summary.income - summary.expenses) / summary.income) * 100)
     : 0;
   const isCurrent = month === monthNow();
-  const firstName = (user?.name || "").split(" ")[0];
 
   return (
     <div className="w-full">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-slate-500">
-            {new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" })}
-          </p>
-          <h2 className="text-3xl font-semibold tracking-tight">{greeting()}, {firstName}</h2>
-        </div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-semibold">Overview</h2>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex items-center rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200/70">
+          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
             <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Previous month"
-              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><ChevronLeft size={18} /></button>
+              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"><ChevronLeft size={18} /></button>
             <span className="min-w-32 px-2 text-center text-sm font-medium">{monthLabel(month)}</span>
             <button onClick={() => setMonth(shiftMonth(month, 1))} disabled={isCurrent} aria-label="Next month"
-              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={18} /></button>
+              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={18} /></button>
           </div>
+          {!isCurrent && (
+            <button onClick={() => setMonth(monthNow())} className="text-sm font-medium text-indigo-600 hover:underline">This month</button>
+          )}
           <button onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-indigo-200 transition-colors hover:bg-indigo-700">
-            <Plus size={18} /> Add transaction
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+            <Plus size={16} /> Transaction
           </button>
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl bg-red-50 p-4 text-red-700">
-          <WifiOff size={20} />
-          <span className="flex-1">{error}</span>
-          <button onClick={load} className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-red-100">Try again</button>
-        </div>
-      )}
+      {error && <ErrorBar message={error} onRetry={load} />}
 
       {!summary && !error && (
         <div className="space-y-6">
-          <Skeleton className="h-56" />
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Skeleton className="h-80" />
-            <Skeleton className="h-80" />
-          </div>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}</div>
+          <div className="grid gap-6 xl:grid-cols-2"><Skeleton className="h-80" /><Skeleton className="h-80" /></div>
         </div>
       )}
 
       {summary && (
         <>
-          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60 sm:p-8">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+            <Stat label="Available balance" value={hasSpendable ? formatMoney(available) : "—"}
               
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Tile icon={TrendingUp} label="Income" value={formatMoney(summary.income)} tone="income" />
-              <Tile icon={TrendingDown} label="Expenses" value={formatMoney(summary.expenses)} tone="expense" />
-              <Tile icon={Scale} label="Net Worth" value={formatMoney(summary.balance)} tone="net" negative={summary.balance < 0} />
-              <Tile icon={PiggyBank} label="Savings Rate" value={`${savingsRate}%`} tone="savings" negative={savingsRate < 0} />
-            </div>
+              color={available < 0 ? "text-red-600" : "text-slate-900"} />
+            <Stat label="Income" value={formatMoney(summary.income)} color="text-green-600" />
+            <Stat label="Expenses" value={formatMoney(summary.expenses)} color="text-red-600" />
+            <Stat label="Net this month" value={formatMoney(summary.balance)}
+              color={summary.balance < 0 ? "text-red-600" : "text-slate-900"} />
+            <Stat label="Savings Rate" value={`${savingsRate}%`} color={savingsRate < 0 ? "text-red-600" : "text-slate-900"} />
           </div>
 
           <div className="mt-6 grid gap-6 xl:grid-cols-2">
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60">
-              <h3 className="text-lg font-semibold tracking-tight">Income vs. Expenses</h3>
+            <div className="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 className="text-lg font-semibold">Income vs. Expenses</h3>
               <p className="mb-2 text-xs text-slate-500">Last 6 months</p>
               <TrendChart kind="line" data={trend} series={[
-                { key: "income", name: "Income", color: "#16a34a" },
-                { key: "expenses", name: "Expenses", color: "#dc2626" },
+                { key: "income", name: "Income", color: "#15803d" },
+                { key: "expenses", name: "Expenses", color: "#b91c1c" },
               ]} />
             </div>
 
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60">
-              <h3 className="text-lg font-semibold tracking-tight">Spending by category</h3>
+            <div className="rounded-lg border border-slate-200 bg-white p-5">
+              <h3 className="text-lg font-semibold">Spending by category</h3>
               <p className="mb-2 text-xs text-slate-500">{monthLabel(month)}</p>
               {chartData.length === 0 ? (
                 <p className="text-slate-500">No expenses in this month.</p>
@@ -188,7 +130,7 @@ export default function Dashboard() {
                 <div className="h-72 w-full">
                   <ResponsiveContainer>
                     <PieChart>
-                      <Pie data={chartData} dataKey="value" nameKey="name" outerRadius="65%" innerRadius="40%" paddingAngle={2}
+                      <Pie data={chartData} dataKey="value" nameKey="name" outerRadius="68%"
                         label={(e) => `${formatMoney(e.value)} (${pcts[chartData.findIndex((d) => d.name === e.name)]}%)`}>
                         {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
@@ -204,29 +146,29 @@ export default function Dashboard() {
             <SavingsGoalsPanel onChanged={handleSaved} />
           </div>
 
-          <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60">
+          <div className="mt-6">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight"><History size={20} className="text-indigo-600" /> Recent Transactions</h3>
+              <h3 className="text-lg font-semibold">Recent transactions</h3>
               <Link to="/transactions" className="text-sm font-medium text-indigo-600 hover:underline">View all</Link>
             </div>
-            {recent.length === 0 ? (
-              <p className="text-slate-500">No transactions yet.</p>
-            ) : (
-              <ul className="divide-y divide-slate-100">
-                {recent.map((t) => (
-                  <li key={t._id} className="flex items-center gap-3 py-2.5">
-                    <TxIcon t={t} />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium">{txTitle(t)}</div>
-                      <div className="truncate text-sm text-slate-500">{txSubtitle(t)}</div>
-                    </div>
-                    <span className={`font-semibold ${t.type === "income" ? "text-green-600" : t.type === "expense" ? "text-red-600" : "text-indigo-600"}`}>
-                      {t.type === "income" ? "+" : t.type === "expense" ? "-" : ""}{formatMoney(t.amount)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <TableCard>
+              <table className="data-table">
+                <thead>
+                  <tr><th>Date</th><th>Category</th><th>Description</th><th className="num">Amount</th></tr>
+                </thead>
+                <tbody>
+                  {recent.map((t) => (
+                    <tr key={t._id}>
+                      <td className="whitespace-nowrap text-slate-500">{fmtDateTime(t.date)}</td>
+                      <td className="font-medium">{txTitle(t)}</td>
+                      <td className="max-w-65 truncate text-slate-600">{txNote(t)}</td>
+                      <td className={`num font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {recent.length === 0 && <p className="p-6 text-center text-slate-500">No transactions yet.</p>}
+            </TableCard>
           </div>
         </>
       )}
