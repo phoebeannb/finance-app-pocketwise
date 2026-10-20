@@ -1,0 +1,76 @@
+import Goal from "../models/Goal.js";
+import Account from "../models/Account.js";
+import Transaction from "../models/Transaction.js";
+
+const LIABILITIES = ["Credit Card", "Loan"];
+const r2 = (n) => Math.round(n * 100) / 100;
+
+/*
+  When income lands in an account you own, move each goal's share into it.
+  Safe to run twice for the same income: a goal that already got its share from this income is skipped.
+  Returns the total moved. It never throws, so a problem here can't undo the income itself.
+*/
+export async function applyAutoSave(income) {
+  if (!income || income.type !== "income" || !income.account) return 0;
+  let total = 0;
+  try {
+    const account = await Account.findOne({ _id: income.account, user: income.user }).select("type").lean();
+    if (!account || LIABILITIES.includes(account.type)) return 0;
+
+    const goals = await Goal.find({ user: income.user, autoPercent: { $gt: 0 } }).sort({ createdAt: 1 });
+    for (const goal of goals) {
+      const remaining = r2(goal.target - goal.saved);
+      if (remaining <= 0) continue;
+      const portion = Math.min(r2((income.amount * goal.autoPercent) / 100), remaining);
+      if (portion < 0.01) continue;
+      if (await Transaction.exists({ autoFrom: income._id, goal: goal._id })) continue;
+
+      // Step 1: put the money in the goal (refused if it would overshoot the target)
+      const bumped = await Goal.findOneAndUpdate(
+        { _id: goal._id, $expr: { $lte: [{ $add: ["$saved", portion] }, { $add: ["$target", 0.005] }] } },
+        { $inc: { saved: portion } }
+      );
+      if (!bumped) continue;
+
+      // Step 2: record it against the account. If that fails, take the money back out of the goal.
+      try {
+        await Transaction.create({
+          user: income.user,
+          type: "transfer",
+          amount: portion,
+          category: "Savings",
+          description: `Auto-saved ${goal.autoPercent}% of income to ${goal.name}`,
+          date: income.date,
+          goal: goal._id,
+          account: income.account,
+          toAccount: null,
+          autoFrom: income._id,
+        });
+        total = r2(total + portion);
+      } catch (err) {
+        await Goal.updateOne({ _id: goal._id }, { $inc: { saved: -portion } });
+        console.error("Auto-save failed:", err.message);
+      }
+    }
+  } catch (err) {
+    console.error("Auto-save failed:", err.message);
+  }
+  return total;
+}
+
+// Undo the automatic savings that came from one income (used when the income is edited or deleted)
+export async function reverseAutoSave(userId, incomeId) {
+  try {
+    const parts = await Transaction.find({ user: userId, autoFrom: incomeId });
+    for (const p of parts) {
+      await Transaction.deleteOne({ _id: p._id });
+      const goal = p.goal ? await Goal.findOne({ _id: p.goal, user: userId }) : null;
+      if (goal) {
+        goal.saved = Math.max(0, r2(goal.saved - p.amount));
+        await goal.save();
+      }
+    }
+  } catch (err) {
+    console.error("Undoing auto-save failed:", err.message);
+  }
+}

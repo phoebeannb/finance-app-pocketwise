@@ -1,0 +1,1 @@
+export const MOOD_KEYS = ["stressed", "celebrating", "bored", "happy", "sad", "angry"];

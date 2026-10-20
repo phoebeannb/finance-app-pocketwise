@@ -3,79 +3,90 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import PasswordStrength from "./PasswordStrength";
 import { checkPassword } from "../utils/passwordPolicy";
-
-const field =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100";
+import { Block, Row, Actions, inputClass, primaryBtn } from "./SettingsUI";
 
 export default function ProfileInfo() {
   const { user, updateUser } = useAuth();
-  const [profile, setProfile] = useState({ name: user.name || "", email: user.email || "" });
-  const [profileMsg, setProfileMsg] = useState({ ok: "", err: "" });
+  const start = { name: user?.name || "", email: user?.email || "" };
+  const [profile, setProfile] = useState(start);
+  const [original, setOriginal] = useState(start);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
-  const [pwMsg, setPwMsg] = useState({ ok: "", err: "" });
+  const [savingPw, setSavingPw] = useState(false);
 
   useEffect(() => {
-    api.get("/profile").then(({ data }) => setProfile({ name: data.name, email: data.email })).catch(() => {});
+    api.get("/profile").then(({ data }) => {
+      const p = { name: data.name, email: data.email };
+      setProfile(p);
+      setOriginal(p);
+    }).catch(() => {});
   }, []);
+
+  const profileDirty = profile.name.trim() !== original.name || profile.email.trim().toLowerCase() !== original.email;
 
   const saveProfile = async (e) => {
     e.preventDefault();
-    setProfileMsg({ ok: "", err: "" });
+    setSavingProfile(true);
     try {
       const { data } = await api.put("/profile", profile);
-      updateUser({ name: data.user.name, email: data.user.email });
-      setProfileMsg({ ok: "Profile updated", err: "" });
-    } catch (err) {
-      setProfileMsg({ ok: "", err: err.response?.data?.message || "Something went wrong" });
+      const p = { name: data.user.name, email: data.user.email };
+      updateUser(p);
+      setProfile(p);
+      setOriginal(p);
+    } catch { /* the red message explains what to fix */ } finally {
+      setSavingProfile(false);
     }
   };
 
-  const passwordOk =
-    checkPassword(pw.next, { email: profile.email, name: profile.name }).every((r) => r.ok) &&
-    pw.next === pw.confirm;
+  const rulesOk = checkPassword(pw.next, { email: profile.email, name: profile.name }).every((r) => r.ok);
+  const mismatch = pw.confirm && pw.next !== pw.confirm;
+  const canSavePw = pw.current && rulesOk && pw.next === pw.confirm;
 
   const savePassword = async (e) => {
     e.preventDefault();
-    setPwMsg({ ok: "", err: "" });
+    setSavingPw(true);
     try {
       await api.put("/profile/password", { currentPassword: pw.current, newPassword: pw.next });
       setPw({ current: "", next: "", confirm: "" });
-      setPwMsg({ ok: "Password updated", err: "" });
-    } catch (err) {
-      setPwMsg({ ok: "", err: err.response?.data?.message || "Something went wrong" });
+    } catch { /* the red message explains what to fix */ } finally {
+      setSavingPw(false);
     }
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <form onSubmit={saveProfile} className="h-fit space-y-3 rounded-2xl bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-semibold">Profile Info</h3>
-        {profileMsg.ok && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-700">{profileMsg.ok}</p>}
-        {profileMsg.err && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{profileMsg.err}</p>}
-        <label className="block text-sm font-medium text-slate-700">Name</label>
-        <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} required className={field} />
-        <label className="block text-sm font-medium text-slate-700">Email</label>
-        <input type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} required className={field} />
-        <button type="submit" className="rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-700">Save profile</button>
+    <div>
+      <form onSubmit={saveProfile}>
+        <Block title="Account" description="This is how you appear in PocketWise and how you log in.">
+          <Row label="Name">
+            <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} required className={inputClass} />
+          </Row>
+          <Row label="Email address" hint="Used to log in and to reset your password.">
+            <input type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} required className={inputClass} />
+          </Row>
+        </Block>
+        <Actions>
+          <button type="submit" disabled={!profileDirty || savingProfile} className={primaryBtn}>{savingProfile ? "Saving..." : "Save changes"}</button>
+        </Actions>
       </form>
 
-      <form onSubmit={savePassword} className="h-fit space-y-3 rounded-2xl bg-white p-5 shadow-sm">
-        <h3 className="text-lg font-semibold">Change password</h3>
-        {pwMsg.ok && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-700">{pwMsg.ok}</p>}
-        {pwMsg.err && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{pwMsg.err}</p>}
-        <input type="password" placeholder="Current password" value={pw.current}
-          onChange={(e) => setPw({ ...pw, current: e.target.value })} required className={field} />
-        <input type="password" placeholder="New password" value={pw.next}
-          onChange={(e) => setPw({ ...pw, next: e.target.value })} required className={field} />
-        <PasswordStrength password={pw.next} email={profile.email} name={profile.name} />
-        <input type="password" placeholder="Confirm new password" value={pw.confirm}
-          onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required className={field} />
-        {pw.confirm && pw.next !== pw.confirm && <p className="text-sm text-red-600">Passwords do not match</p>}
-        <button type="submit" disabled={!passwordOk}
-          className="rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
-          Update password
-        </button>
+      <form onSubmit={savePassword} className="mt-10">
+        <Block title="Password" description="Choose a strong password you don't use anywhere else.">
+          <Row label="Current password">
+            <input type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" className={inputClass} />
+          </Row>
+          <Row label="New password">
+            <input type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" className={inputClass} />
+            <div className="mt-3"><PasswordStrength password={pw.next} email={profile.email} name={profile.name} /></div>
+          </Row>
+          <Row label="Confirm new password">
+            <input type="password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} autoComplete="new-password" className={inputClass} />
+            {mismatch && <p className="mt-1 text-sm text-red-600">The two passwords don't match yet.</p>}
+          </Row>
+        </Block>
+        <Actions>
+          <button type="submit" disabled={!canSavePw || savingPw} className={primaryBtn}>{savingPw ? "Updating..." : "Update password"}</button>
+        </Actions>
       </form>
     </div>
   );

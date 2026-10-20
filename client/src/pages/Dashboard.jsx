@@ -13,6 +13,8 @@ import TransactionModal from "../components/TransactionModal";
 import TrendChart from "../components/TrendChart";
 import BudgetsPanel from "../components/BudgetsPanel";
 import SavingsGoalsPanel from "../components/SavingsGoalsPanel";
+import QuickCapture from "../components/QuickCapture";
+import InboxList from "../components/InboxList";
 import Skeleton from "../components/Skeleton";
 import { Stat, TableCard, ErrorBar } from "../components/ui";
 
@@ -22,6 +24,7 @@ const SPENDABLE = ["Bank Account", "Other"];
 export default function Dashboard() {
   const [month, setMonth] = useState(monthNow());
   const [summary, setSummary] = useState(null);
+  const [safe, setSafe] = useState(null);
   const [accounts, setAccounts] = useState(null);
   const [trend, setTrend] = useState([]);
   const [recent, setRecent] = useState([]);
@@ -31,16 +34,18 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [s, r, t, a] = await Promise.all([
+      const [s, r, t, a, sf] = await Promise.all([
         api.get("/transactions/summary", { params: { month } }),
         api.get("/reports", { params: { period: "monthly" } }),
         api.get("/transactions", { params: { limit: 5 } }),
         api.get("/accounts"),
+        api.get("/safe-to-spend").catch(() => ({ data: null })), // a problem here shouldn't blank the page
       ]);
       setSummary(s.data);
       setTrend(r.data.series.slice(-6));
       setRecent(t.data);
       setAccounts(a.data);
+      setSafe(sf.data);
       setError("");
     } catch (err) {
       setError(err.response ? "Something went wrong loading your overview." : "Can't reach the server. Make sure it's running, then try again.");
@@ -67,6 +72,23 @@ export default function Dashboard() {
     : 0;
   const isCurrent = month === monthNow();
 
+  // Safe to spend today
+  let safeValue = "—";
+  let safeHint = "Add a bank account to see this";
+  let safeColor = "text-slate-900";
+  let safeTitle = "";
+  if (safe?.hasAccounts) {
+    const over = safe.safeToday <= 0;
+    safeValue = formatMoney(Math.max(0, safe.safeToday));
+    safeColor = over ? "text-red-600" : "text-green-600";
+    safeHint = over
+      ? safe.left < 0
+        ? `Bills due this month are ${formatMoney(-safe.left)} more than your balance`
+        : "You've used up today's allowance"
+      : `${formatMoney(safe.perDay)} a day · ${safe.daysLeft} day${safe.daysLeft === 1 ? "" : "s"} left this month`;
+    safeTitle = `Balance ${formatMoney(safe.balance)} + expected income ${formatMoney(safe.income)} − bills due ${formatMoney(safe.bills)} = ${formatMoney(safe.left)} for the rest of the month. Spent today: ${formatMoney(safe.spentToday)}.`;
+  }
+
   return (
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -84,12 +106,14 @@ export default function Dashboard() {
           )}
           <button onClick={() => setModalOpen(true)}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            <Plus size={16} /> Transaction
+            <Plus size={16} /> Add transaction
           </button>
         </div>
       </div>
 
       {error && <ErrorBar message={error} onRetry={load} />}
+
+      <QuickCapture onCaptured={handleSaved} />
 
       {!summary && !error && (
         <div className="space-y-6">
@@ -102,14 +126,18 @@ export default function Dashboard() {
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
             <Stat label="Available balance" value={hasSpendable ? formatMoney(available) : "—"}
-              
-              color={available < 0 ? "text-red-600" : "text-slate-900"} />
+               />
+            <div title={safeTitle}>
+              <Stat label="Safe to spend today" value={safeValue} hint={safeHint} color={safeColor} />
+            </div>
             <Stat label="Income" value={formatMoney(summary.income)} color="text-green-600" />
             <Stat label="Expenses" value={formatMoney(summary.expenses)} color="text-red-600" />
-            <Stat label="Net this month" value={formatMoney(summary.balance)}
-              color={summary.balance < 0 ? "text-red-600" : "text-slate-900"} />
-            <Stat label="Savings Rate" value={`${savingsRate}%`} color={savingsRate < 0 ? "text-red-600" : "text-slate-900"} />
+            <Stat label="Savings rate" value={`${savingsRate}%`}
+              hint={summary.saved > 0 ? `${formatMoney(summary.saved)} moved to goals` : "Nothing moved to goals yet"}
+              color={savingsRate < 0 ? "text-red-600" : "text-slate-900"} />
           </div>
+
+          <InboxList refreshKey={refreshKey} onChanged={handleSaved} />
 
           <div className="mt-6 grid gap-6 xl:grid-cols-2">
             <div className="rounded-lg border border-slate-200 bg-white p-5">
@@ -143,7 +171,7 @@ export default function Dashboard() {
             </div>
 
             <BudgetsPanel refreshKey={refreshKey} />
-            <SavingsGoalsPanel onChanged={handleSaved} />
+            <SavingsGoalsPanel refreshKey={refreshKey} />
           </div>
 
           <div className="mt-6">
@@ -161,7 +189,7 @@ export default function Dashboard() {
                     <tr key={t._id}>
                       <td className="whitespace-nowrap text-slate-500">{fmtDateTime(t.date)}</td>
                       <td className="font-medium">{txTitle(t)}</td>
-                      <td className="max-w-65 truncate text-slate-600">{txNote(t)}</td>
+                      <td className="max-w-[260px] truncate text-slate-600">{txNote(t)}</td>
                       <td className={`num font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</td>
                     </tr>
                   ))}

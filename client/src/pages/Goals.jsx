@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import api from "../api/axios";
 import { formatMoney } from "../utils/format";
 import { fmtDate, fmtDateTime, nowLocalInput, toStored } from "../utils/datetime";
+import { toast } from "../utils/toast";
 import Modal from "../components/Modal";
 import ConfirmModal from "../components/ConfirmModal";
 import Skeleton from "../components/Skeleton";
@@ -10,19 +11,13 @@ import { IconButton, Stat, TableCard, Progress, ErrorBar } from "../components/u
 
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
-const blank = { name: "", target: "", deadline: "" };
-const QUICK = [100, 500, 1000, 5000];
 const LIABILITIES = ["Credit Card", "Loan"];
+const blank = { name: "", target: "", deadline: "", autoPercent: "" };
 
 const pctOf = (g) => (g.target > 0 ? (g.saved / g.target) * 100 : 0);
 const pctText = (p) => (p > 0 && p < 1 ? p.toFixed(1) : Math.round(p));
-
-function monthlyNeeded(g) {
-  if (!g.deadline || g.saved >= g.target) return null;
-  const days = (new Date(g.deadline) - new Date()) / 86400000;
-  if (days <= 0) return null;
-  return (g.target - g.saved) / Math.max(1, Math.ceil(days / 30));
-}
+const percentText = (n) => `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
+const round2 = (n) => Math.round(n * 100) / 100;
 
 export default function Goals() {
   const [goals, setGoals] = useState(null);
@@ -32,14 +27,11 @@ export default function Goals() {
   const [goalOpen, setGoalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(blank);
-  const [formError, setFormError] = useState("");
 
-  const [fundsGoal, setFundsGoal] = useState(null);
-  const [mode, setMode] = useState("add");
-  const [amount, setAmount] = useState("");
+  const [wGoal, setWGoal] = useState(null);
+  const [wAmount, setWAmount] = useState("");
   const [accounts, setAccounts] = useState([]);
-  const [fundsAccount, setFundsAccount] = useState("");
-  const [fundsError, setFundsError] = useState("");
+  const [wAccount, setWAccount] = useState("");
 
   const [toDelete, setToDelete] = useState(null);
 
@@ -58,72 +50,63 @@ export default function Goals() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const openNew = () => { setEditing(null); setForm(blank); setFormError(""); setGoalOpen(true); };
+  const list = goals || [];
+  const usedBy = (exceptId) => list.filter((g) => g._id !== exceptId).reduce((s, g) => s + (g.autoPercent || 0), 0);
+  const usedAll = usedBy(null);
+  const freeAll = Math.max(0, round2(100 - usedAll));
+  const freeHere = Math.max(0, round2(100 - usedBy(editing?._id)));
+
+  const openNew = () => {
+    setEditing(null);
+    setForm({ ...blank, autoPercent: String(Math.min(10, freeAll)) });
+    setGoalOpen(true);
+  };
   const openEdit = (g) => {
     setEditing(g);
-    setForm({ name: g.name, target: g.target, deadline: g.deadline ? g.deadline.slice(0, 10) : "" });
-    setFormError("");
+    setForm({ name: g.name, target: g.target, deadline: g.deadline ? g.deadline.slice(0, 10) : "", autoPercent: String(g.autoPercent || 0) });
     setGoalOpen(true);
   };
 
   const saveGoal = async (e) => {
     e.preventDefault();
-    setFormError("");
-    const payload = { name: form.name, target: Number(form.target), deadline: form.deadline || null };
+    const payload = { name: form.name, target: Number(form.target), deadline: form.deadline || null, autoPercent: Number(form.autoPercent) || 0 };
     try {
       if (editing) await api.put(`/goals/${editing._id}`, payload);
       else await api.post("/goals", payload);
       setGoalOpen(false);
       load();
-    } catch (err) {
-      setFormError(err.response?.data?.message || "Something went wrong");
-    }
+    } catch { /* the red message explains what to fix */ }
   };
 
-  const openFunds = (g) => {
-    setFundsGoal(g);
-    setMode("add");
-    setAmount("");
-    setFundsError("");
+  const openWithdraw = (g) => {
+    setWGoal(g);
+    setWAmount("");
     api.get("/accounts").then(({ data }) => {
       const own = data.filter((a) => !LIABILITIES.includes(a.type));
       setAccounts(own);
-      setFundsAccount(own[0]?._id || "");
+      setWAccount(own[0]?._id || "");
     }).catch(() => {});
   };
 
-  const acct = accounts.find((a) => a._id === fundsAccount);
-  const n = Number(amount);
-
-  const saveFunds = async (e) => {
+  const saveWithdraw = async (e) => {
     e.preventDefault();
-    setFundsError("");
-    if (!n || n <= 0) return setFundsError("Enter an amount");
-    if (mode === "add" && acct && n > acct.currentBalance)
-      return setFundsError(`Not enough in ${acct.name} (${formatMoney(acct.currentBalance)} available)`);
-    if (mode === "withdraw" && n > fundsGoal.saved) return setFundsError("You can't withdraw more than you've saved");
+    const n = Number(wAmount);
+    if (!(n > 0)) return toast.error("Enter the amount you want to withdraw.");
+    if (n > wGoal.saved) return toast.error(`You can only withdraw up to ${formatMoney(wGoal.saved)} from this goal.`);
+    if (!wAccount) return toast.error("Choose the account that receives the money. Create one in the Accounts tab if you have none.");
     try {
-      await api.post(`/goals/${fundsGoal._id}/funds`, {
-        amount: mode === "add" ? n : -n,
-        account: fundsAccount || null,
-        date: toStored(nowLocalInput()),
-      });
-      setFundsGoal(null);
+      await api.post(`/goals/${wGoal._id}/funds`, { amount: -n, account: wAccount, date: toStored(nowLocalInput()) });
+      setWGoal(null);
       load();
-    } catch (err) {
-      setFundsError(err.response?.data?.message || "Something went wrong");
-    }
+    } catch { /* the red message explains what to fix */ }
   };
 
-  const list = goals || [];
   const saved = list.reduce((s, g) => s + g.saved, 0);
   const target = list.reduce((s, g) => s + g.target, 0);
   const reached = list.filter((g) => g.saved >= g.target).length;
   const overall = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
-
-  const remaining = fundsGoal ? Math.max(0, fundsGoal.target - fundsGoal.saved) : 0;
-  const goalAfter = fundsGoal && n > 0 ? Math.max(0, fundsGoal.saved + (mode === "add" ? n : -n)) : null;
-  const acctAfter = acct && n > 0 ? acct.currentBalance + (mode === "add" ? -n : n) : null;
+  const acct = accounts.find((a) => a._id === wAccount);
+  const wn = Number(wAmount);
 
   return (
     <div className="w-full">
@@ -142,22 +125,22 @@ export default function Goals() {
 
       {goals && (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <Stat label="Total saved" value={formatMoney(saved)} color="text-green-600" />
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Saved across all goals" value={formatMoney(saved)} color="text-green-600" />
             <Stat label="Total target" value={formatMoney(target)} />
             <Stat label="Overall progress" value={`${pctText(overall)}%`} hint={`${reached} of ${list.length} goal${list.length === 1 ? "" : "s"} reached`} />
+            <Stat label="Auto-save" value={`${percentText(usedAll)} of income`} hint={`${percentText(freeAll)} not allocated`} />
           </div>
 
           <TableCard>
             <table className="data-table">
               <thead>
-                <tr><th>Goal</th><th className="num">Target</th><th className="num">Saved</th><th className="num">Left</th><th>Progress</th><th>Target date</th><th className="actions" /></tr>
+                <tr><th>Goal</th><th className="num">Target</th><th className="num">Saved</th><th className="num">Left</th><th>Progress</th><th>Auto-save</th><th>Target date</th><th className="actions" /></tr>
               </thead>
               <tbody>
                 {list.map((g) => {
                   const pct = pctOf(g);
                   const done = g.saved >= g.target;
-                  const need = monthlyNeeded(g);
                   return (
                     <tr key={g._id}>
                       <td className="font-medium">{g.name}</td>
@@ -170,14 +153,12 @@ export default function Goals() {
                           <span className="w-12 text-xs text-slate-500">{done ? "Reached" : `${pctText(pct)}%`}</span>
                         </div>
                       </td>
-                      <td className="whitespace-nowrap">
-                        {g.deadline ? fmtDate(g.deadline) : <span className="text-slate-400">—</span>}
-                        {need && <div className="text-xs text-slate-500">Save {formatMoney(need)}/month</div>}
-                      </td>
+                      <td className="whitespace-nowrap">{g.autoPercent > 0 ? `${percentText(g.autoPercent)} of income` : <span className="text-slate-400">Off</span>}</td>
+                      <td className="whitespace-nowrap">{g.deadline ? fmtDate(g.deadline) : <span className="text-slate-400">—</span>}</td>
                       <td className="actions">
-                        <button onClick={() => openFunds(g)} className="mr-1 rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700">
-                          Add savings
-                        </button>
+                        {g.saved > 0 && (
+                          <button onClick={() => openWithdraw(g)} className="mr-1 rounded-md border border-slate-300 px-3 py-1 text-sm font-medium hover:bg-slate-50">Withdraw</button>
+                        )}
                         <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(g)} />
                         <IconButton icon={Trash2} label="Delete" danger onClick={() => setToDelete(g)} />
                       </td>
@@ -188,14 +169,14 @@ export default function Goals() {
             </table>
             {goals.length === 0 && (
               <div className="p-6 text-center text-slate-500">
-                No goals yet. Set a target and start saving.{" "}
+                No goals yet. Set a target and decide how much of each income goes into it.{" "}
                 <button onClick={openNew} className="font-medium text-indigo-600 hover:underline">Create one</button>
               </div>
             )}
           </TableCard>
 
           <div className="mt-8">
-            <h3 className="mb-2 text-lg font-semibold">Recent Savings</h3>
+            <h3 className="mb-2 text-lg font-semibold">Recent savings activity</h3>
             <TableCard>
               <table className="data-table">
                 <thead><tr><th>Date</th><th>Description</th><th>Account</th><th className="num">Goal change</th></tr></thead>
@@ -212,82 +193,72 @@ export default function Goals() {
                   ))}
                 </tbody>
               </table>
-              {activity?.length === 0 && <p className="p-6 text-center text-slate-500">No savings yet.</p>}
+              {activity?.length === 0 && <p className="p-6 text-center text-slate-500">Nothing yet. Savings appear here the next time you add income to a bank account.</p>}
             </TableCard>
           </div>
         </>
       )}
 
-      <Modal open={goalOpen} onClose={() => setGoalOpen(false)} title={editing ? "Edit goal" : "New savings goal"}>
+      <Modal open={goalOpen} onClose={() => setGoalOpen(false)} title={editing ? "Edit goal" : "New Savings Goal"}>
         <form onSubmit={saveGoal} className="space-y-3">
-          {formError && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{formError}</p>}
-          <input placeholder="Goal name (e.g. Emergency fund)" value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })} required className={field} />
-          <input type="number" min="1" step="0.01" placeholder="Target amount" value={form.target}
-            onChange={(e) => setForm({ ...form, target: e.target.value })} required className={field} />
-          <label className="block text-sm text-slate-500">Target date (optional)</label>
-          <input type="date" value={form.deadline}
-            onChange={(e) => setForm({ ...form, deadline: e.target.value })} className={field} />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Goal Name</label>
+            <input placeholder="e.g. Emergency fund" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={field} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Target Amount</label>
+            <input type="number" min="1" step="0.01" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} required className={field} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Auto-save (% of every income)</label>
+            <input type="number" min="0" max="100" step="0.5" value={form.autoPercent} onChange={(e) => setForm({ ...form, autoPercent: e.target.value })} className={field} />
+            <p className="mt-1 text-xs text-slate-500">
+              {Number(form.autoPercent) > 0
+                ? `On a ${formatMoney(10000)} income, ${formatMoney((10000 * Number(form.autoPercent)) / 100)} moves into this goal. `
+                : "Set 0 to turn auto-save off for this goal. "}
+              You can use up to {percentText(freeHere)} here.
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Target date (optional)</label>
+            <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className={field} />
+          </div>
           <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
             {editing ? "Save changes" : "Create goal"}
           </button>
         </form>
       </Modal>
 
-      <Modal open={!!fundsGoal} onClose={() => setFundsGoal(null)} title={fundsGoal ? `Savings: ${fundsGoal.name}` : ""} size="max-w-sm">
-        {fundsGoal && (
-          <form onSubmit={saveFunds} className="space-y-3">
-            {fundsError && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{fundsError}</p>}
-
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-              {[["add", "Add"], ["withdraw", "Withdraw"]].map(([v, label]) => (
-                <button type="button" key={v} onClick={() => setMode(v)}
-                  className={`rounded-md py-2 text-sm font-medium ${mode === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <input type="number" min="0.01" step="0.01" placeholder="Amount" value={amount} autoFocus
-              onChange={(e) => setAmount(e.target.value)} required className={`${field} text-lg`} />
-
-            <div className="flex flex-wrap gap-2">
-              {QUICK.map((q) => (
-                <button type="button" key={q} onClick={() => setAmount(String(q))}
-                  className="rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50">{formatMoney(q)}</button>
-              ))}
-              {mode === "add" && remaining > 0 && (
-                <button type="button" onClick={() => setAmount(String(remaining))}
-                  className="rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50">Fill the rest ({formatMoney(remaining)})</button>
-              )}
-            </div>
-
+      <Modal open={!!wGoal} onClose={() => setWGoal(null)} title={wGoal ? `Withdraw from ${wGoal.name}` : ""} size="max-w-sm">
+        {wGoal && (
+          <form onSubmit={saveWithdraw} className="space-y-3">
+            <p className="text-sm text-slate-600">Saved so far: <span className="font-semibold text-slate-900">{formatMoney(wGoal.saved)}</span></p>
             <div>
-              <span className="mb-1 block text-sm font-medium text-slate-700">{mode === "add" ? "Take from account" : "Return to account"}</span>
-              <select value={fundsAccount} onChange={(e) => setFundsAccount(e.target.value)} className={field}>
-                {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
-                <option value="">Don't link to an account</option>
-              </select>
-              {accounts.length === 0 && <p className="mt-1 text-xs text-amber-600">No accounts yet. Create one in the Accounts tab so savings come out of it.</p>}
-            </div>
-
-            {n > 0 && (
-              <div className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                <div>Goal total: <span className="font-semibold text-slate-900">{formatMoney(goalAfter)}</span> of {formatMoney(fundsGoal.target)}</div>
-                {acct && <div>{acct.name}: <span className="font-semibold text-slate-900">{formatMoney(acctAfter)}</span> after this</div>}
+              <label className="mb-1 block text-sm font-medium text-slate-700">Amount</label>
+              <div className="flex gap-2">
+                <input type="number" min="0.01" step="0.01" value={wAmount} autoFocus onChange={(e) => setWAmount(e.target.value)} required className={`${field} min-w-0`} />
+                <button type="button" onClick={() => setWAmount(String(wGoal.saved))} className="shrink-0 rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-50">All</button>
               </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Send the money to</label>
+              <select value={wAccount} onChange={(e) => setWAccount(e.target.value)} className={field}>
+                {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
+              </select>
+            </div>
+            {wn > 0 && acct && (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                {acct.name} will have <span className="font-semibold text-slate-900">{formatMoney(acct.currentBalance + wn)}</span>.
+              </p>
             )}
-
-            <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
-              {mode === "add" ? "Add to savings" : "Withdraw"}
-            </button>
+            <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">Withdraw</button>
           </form>
         )}
       </Modal>
 
       <ConfirmModal
         open={!!toDelete}
-        message={`Delete the goal "${toDelete?.name}"? Money already saved is not returned to your accounts, so withdraw it first if you want it back.`}
+        message={`Are you sure you want to delete the goal "${toDelete?.name}"? ${toDelete?.saved > 0 ? `The ${formatMoney(toDelete.saved)} saved will go back to the accounts it came from.` : "Nothing has been saved in it yet."}`}
         onClose={() => setToDelete(null)}
         onConfirm={async () => { await api.delete(`/goals/${toDelete._id}`); load(); }}
       />

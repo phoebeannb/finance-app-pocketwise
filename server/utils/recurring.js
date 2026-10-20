@@ -3,6 +3,7 @@ import Recurring from "../models/Recurring.js";
 import Transaction from "../models/Transaction.js";
 import Account from "../models/Account.js";
 import { startOfToday } from "./dates.js";
+import { applyAutoSave } from "./autosave.js";
 
 const DAY = 86400000;
 const MAX_CATCHUP = 120; // most missed due dates posted for one item in one run
@@ -29,9 +30,9 @@ export function firstOnOrAfter(date, cadence, anchorDay, today) {
   Posts every bill that is due. Safe to run any number of times:
   1. The transaction is inserted first. The unique index on (recurring, occurrence) rejects a second
      insert for the same due date, so a double run or a crash and restart can't create a duplicate.
-  2. Only then is nextDate moved forward, with a condition ("only if it still equals this due date"),
-     so two runs at once can't both advance it.
-  If the server dies between 1 and 2, the next run hits the unique index, skips the insert, and finishes step 2.
+  2. Only then is nextDate moved forward, with a condition ("only if it still equals this due date").
+  If the server dies between 1 and 2, the next run skips the insert and finishes step 2.
+  Auto-saving for income is also safe to repeat (each goal gets its share once per income).
 */
 export async function processDue(filter = {}) {
   const today = startOfToday();
@@ -43,8 +44,9 @@ export async function processDue(filter = {}) {
     let occ = item.nextDate;
 
     for (let i = 0; i < MAX_CATCHUP && occ.getTime() <= today.getTime(); i++) {
+      let tx = null;
       try {
-        await Transaction.create({
+        tx = await Transaction.create({
           user: item.user,
           type: item.type,
           amount: item.amount,
@@ -58,7 +60,9 @@ export async function processDue(filter = {}) {
         created++;
       } catch (err) {
         if (err.code !== 11000) throw err; // 11000 = already posted for this date, which is fine
+        tx = await Transaction.findOne({ recurring: item._id, occurrence: occ });
       }
+      if (tx && tx.type === "income") await applyAutoSave(tx);
 
       const next = nextOccurrence(occ, item.cadence, item.anchorDay);
       const res = await Recurring.updateOne({ _id: item._id, nextDate: occ }, { $set: { nextDate: next, lastPosted: occ } });

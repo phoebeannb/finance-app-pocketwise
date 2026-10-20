@@ -16,6 +16,7 @@ import ruleRoutes from "./routes/rules.js";
 import recurringRoutes from "./routes/recurring.js";
 import Transaction from "./models/Transaction.js";
 import { startScheduler } from "./utils/recurring.js";
+import safeRoutes from "./routes/safe.js";
 
 
 
@@ -37,6 +38,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/import", importRoutes);
 app.use("/api/rules", ruleRoutes);
 app.use("/api/recurring", recurringRoutes);
+app.use("/api/safe-to-spend", safeRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {

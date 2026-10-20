@@ -1,38 +1,44 @@
 import { useSearchParams } from "react-router-dom";
-import { User, SlidersHorizontal, Tags, CreditCard, ShieldCheck } from "lucide-react";
 import ProfileInfo from "../components/ProfileInfo";
 import PreferencesPanel from "../components/PreferencesPanel";
 import CategoriesManager from "../components/CategoriesManager";
-import CardsManager from "../components/CardsManager";
 import DataPrivacy from "../components/DataPrivacy";
 
-const TABS = [
-  ["profile", "Profile Info", User, ProfileInfo],
-  ["preferences", "Preferences", SlidersHorizontal, PreferencesPanel],
-  ["categories", "Categories", Tags, CategoriesManager],
-  ["cards", "Cards", CreditCard, CardsManager],
-  ["data", "Data & privacy", ShieldCheck, DataPrivacy],
+const SECTIONS = [
+  ["profile", "Profile", "Your name, email and password.", ProfileInfo],
+  ["preferences", "Preferences", "How amounts and dates are shown, and your default account.", PreferencesPanel],
+  ["categories", "Categories", "The categories you've created.", CategoriesManager],
+  ["data", "Data & privacy", "Manage your personal data and account settings.", DataPrivacy],
 ];
 
 export default function Settings() {
   const [params, setParams] = useSearchParams();
-  const tab = TABS.some(([v]) => v === params.get("tab")) ? params.get("tab") : "profile";
-  const Active = TABS.find(([v]) => v === tab)[3];
+  const key = SECTIONS.some(([k]) => k === params.get("tab")) ? params.get("tab") : "profile";
+  const [, , description, Active] = SECTIONS.find(([k]) => k === key);
+  const title = SECTIONS.find(([k]) => k === key)[1];
 
   return (
     <div className="w-full">
       <h2 className="mb-6 text-2xl font-semibold">Settings</h2>
 
-      <div className="mb-6 inline-flex flex-wrap rounded-lg border border-slate-200 bg-white p-0.5">
-        {TABS.map(([value, label, Icon]) => (
-          <button key={value} onClick={() => setParams({ tab: value }, { replace: true })}
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium ${tab === value ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
-            <Icon size={16} /> {label}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <nav aria-label="Settings sections" className="flex shrink-0 gap-1 overflow-x-auto lg:w-52 lg:flex-col">
+          {SECTIONS.map(([k, label]) => (
+            <button key={k} onClick={() => setParams({ tab: k }, { replace: true })}
+              className={`whitespace-nowrap rounded-md px-3 py-2 text-left text-sm ${
+                key === k ? "bg-white font-semibold text-slate-900 ring-1 ring-slate-200" : "text-slate-600 hover:bg-slate-200/60"
+              }`}>
+              {label}
+            </button>
+          ))}
+        </nav>
 
-      <Active />
+        <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white p-6">
+          <h3 className="text-lg font-semibold">{title}</h3>
+          <p className="mb-6 mt-1 text-sm text-slate-500">{description}</p>
+          <Active />
+        </div>
+      </div>
     </div>
   );
 }
