@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import api from "../api/axios";
 import useCategories from "../hooks/useCategories";
+import { usePrefs } from "../context/PreferencesContext";
 import { formatMoney } from "../utils/format";
 import { nowLocalInput, toStored, toInput } from "../utils/datetime";
 import Modal from "./Modal";
@@ -38,12 +39,20 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
   const [saving, setSaving] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const { expense, income, reload } = useCategories();
+  const { prefs } = usePrefs();
+  const defaultAccount = prefs.defaultAccount;
 
   useEffect(() => {
     if (!open) return;
     setError("");
     reload();
-    api.get("/accounts").then(({ data }) => setAccounts(data)).catch(() => {});
+    api.get("/accounts").then(({ data }) => {
+      setAccounts(data);
+      // New transactions start with the default account, if it still exists
+      if (!editing && defaultAccount && data.some((a) => a._id === defaultAccount)) {
+        setForm((f) => (f.account ? f : { ...f, account: defaultAccount }));
+      }
+    }).catch(() => {});
     if (editing) {
       setForm({
         type: editing.type,
@@ -59,7 +68,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
     } else {
       setForm(blank());
     }
-  }, [open, editing, reload]);
+  }, [open, editing, reload, defaultAccount]);
 
   const isTransfer = form.type === "transfer";
   const baseCats = form.type === "income" ? income : expense;

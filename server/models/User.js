@@ -6,6 +6,11 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   resetPasswordToken: String,
   resetPasswordExpires: Date,
+  preferences: {
+    currency: { type: String, default: "PHP" },
+    dateFormat: { type: String, default: "medium" },
+    defaultAccount: { type: mongoose.Schema.Types.ObjectId, ref: "Account", default: null },
+  },
 }, { timestamps: true });
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model("User", userSchema);  

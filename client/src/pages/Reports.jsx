@@ -65,7 +65,7 @@ export default function Reports() {
 
           <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
             <h3 className="text-lg font-semibold">{METRICS[metric].name} over time</h3>
-            <p className="mb-2 text-xs text-slate-500">{RANGE[period]} · click a box above to switch</p>
+            <p className="mb-2 text-xs text-slate-500">{RANGE[period]} </p>
             <TrendChart kind="bar" data={data.series}
               series={[{ key: metric, name: METRICS[metric].name, color: METRICS[metric].color }]} />
           </div>
