@@ -21,6 +21,16 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const UNSORTED = [{ category: "" }, { category: null }]; // no category yet = waiting in the inbox
 const withAuto = (tx, autoSaved) => ({ ...tx.toObject(), autoSaved });
 
+const cleanTags = (value) => {
+  const out = [];
+  for (const raw of Array.isArray(value) ? value : []) {
+    const t = String(raw || "").trim().replace(/^#+/, "").toLowerCase().replace(/\s+/g, "-").slice(0, 20);
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length === 5) break;
+  }
+  return out;
+};
+
 async function buildPayload(body, userId) {
   const type = body.type;
   const amount = Number(body.amount);
@@ -45,6 +55,8 @@ async function buildPayload(body, userId) {
     fee: r2(fee),
     date,
     description: (body.description || "").toString().trim().slice(0, 200),
+    notes: (body.notes || "").toString().trim().slice(0, 500),
+    tags: type !== "transfer" ? cleanTags(body.tags) : [],
     category: type === "transfer" ? "Transfer" : (body.category || "").toString().trim().slice(0, 60),
     mood: type !== "transfer" && MOOD_KEYS.includes(body.mood) ? body.mood : "",
     account: accountId,
@@ -64,6 +76,51 @@ async function buildPayload(body, userId) {
   }
 
   return { data };
+}
+
+// The same filters power the list, the day totals and the CSV export
+function buildMatch(query, userId) {
+  const { q, type, category, account, from, to, min, max, tag } = query;
+  const and = [{ user: new mongoose.Types.ObjectId(userId) }];
+
+  if (TYPES.includes(type)) and.push({ type });
+  if (category) and.push({ category: new RegExp(`^${escapeRegex(String(category).slice(0, 60))}$`, "i") });
+  if (query.uncategorized === "1") {
+    and.push({ type: { $in: ["income", "expense"] } });
+    and.push({ $or: UNSORTED });
+  }
+  if (isId(account)) {
+    const a = new mongoose.Types.ObjectId(account);
+    and.push({ $or: [{ account: a }, { toAccount: a }] });
+  }
+  if (tag) and.push({ tags: String(tag).toLowerCase().slice(0, 20) });
+  const text = String(q || "").trim().slice(0, 60);
+  if (text) {
+    const rx = new RegExp(escapeRegex(text), "i");
+    and.push({ $or: [{ description: rx }, { category: rx }, { notes: rx }, { tags: rx }] });
+  }
+  if (YMD.test(from || "")) and.push({ date: { $gte: new Date(`${from}T00:00:00.000Z`) } });
+  if (YMD.test(to || "")) and.push({ date: { $lt: new Date(new Date(`${to}T00:00:00.000Z`).getTime() + 86400000) } });
+  if (min !== undefined && min !== "" && Number.isFinite(Number(min))) and.push({ amount: { $gte: Number(min) } });
+  if (max !== undefined && max !== "" && Number.isFinite(Number(max))) and.push({ amount: { $lte: Number(max) } });
+
+  return { and, match: { $and: and } };
+}
+
+// Deleting also undoes automatic savings and fixes the goal total
+async function deleteTx(userId, id) {
+  const tx = await Transaction.findOneAndDelete({ _id: id, user: userId });
+  if (!tx) return null;
+  if (tx.type === "income") await reverseAutoSave(userId, tx._id);
+  if (tx.goal) {
+    const goal = await Goal.findOne({ _id: tx.goal, user: userId });
+    if (goal) {
+      const change = tx.account ? -tx.amount : tx.amount; // deposit → remove, withdrawal → put back
+      goal.saved = Math.max(0, r2(goal.saved + change));
+      await goal.save();
+    }
+  }
+  return tx;
 }
 
 router.get("/", async (req, res) => {
@@ -100,32 +157,31 @@ router.get("/inbox", async (req, res) => {
   }
 });
 
+// Smart defaults: what category (and account) did you use the last time you typed this?
+router.get("/suggest", async (req, res) => {
+  try {
+    const description = String(req.query.description || "").trim().slice(0, 200);
+    const type = req.query.type === "income" ? "income" : "expense";
+    if (description.length < 3) return res.json({});
+
+    const last = await Transaction.findOne({
+      user: req.userId, type,
+      description: new RegExp(`^${escapeRegex(description)}$`, "i"),
+      category: { $nin: ["", null] },
+    }).sort({ date: -1 }).select("category account").lean();
+    if (last) return res.json({ category: last.category, account: last.account ? String(last.account) : "", source: "history" });
+
+    const rules = prepareRules(await Rule.find({ user: req.userId }).lean());
+    const s = suggestCategory(description, type, rules);
+    res.json(s.category ? { category: s.category, source: s.source } : {});
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 router.get("/search", async (req, res) => {
   try {
-    const { q, type, category, account, from, to, min, max } = req.query;
-    const and = [{ user: new mongoose.Types.ObjectId(req.userId) }];
-
-    if (TYPES.includes(type)) and.push({ type });
-    if (category) and.push({ category: new RegExp(`^${escapeRegex(String(category).slice(0, 60))}$`, "i") });
-    if (req.query.uncategorized === "1") {
-      and.push({ type: { $in: ["income", "expense"] } });
-      and.push({ $or: UNSORTED });
-    }
-    if (isId(account)) {
-      const a = new mongoose.Types.ObjectId(account);
-      and.push({ $or: [{ account: a }, { toAccount: a }] });
-    }
-    const text = String(q || "").trim().slice(0, 60);
-    if (text) {
-      const rx = new RegExp(escapeRegex(text), "i");
-      and.push({ $or: [{ description: rx }, { category: rx }] });
-    }
-    if (YMD.test(from || "")) and.push({ date: { $gte: new Date(`${from}T00:00:00.000Z`) } });
-    if (YMD.test(to || "")) and.push({ date: { $lt: new Date(new Date(`${to}T00:00:00.000Z`).getTime() + 86400000) } });
-    if (min !== undefined && min !== "" && Number.isFinite(Number(min))) and.push({ amount: { $gte: Number(min) } });
-    if (max !== undefined && max !== "" && Number.isFinite(Number(max))) and.push({ amount: { $lte: Number(max) } });
-
-    const match = { $and: and };
+    const { and, match } = buildMatch(req.query, req.userId);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 20));
     const total = await Transaction.countDocuments(match);
     const pages = Math.ceil(total / pageSize);
@@ -147,9 +203,56 @@ router.get("/search", async (req, res) => {
       expenses: r2(sums.find((s) => s._id === "expense")?.total || 0), // transfers aren't counted
     };
 
-    res.json({ items, total, page, pageSize, pages, totals });
+    // Full-day totals for the days on this page, so a day split across two pages still adds up
+    const daily = {};
+    if (items.length) {
+      const dayStart = (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const rows = await Transaction.aggregate([
+        { $match: { $and: [...and, { date: { $gte: dayStart(items[items.length - 1].date), $lt: new Date(dayStart(items[0].date).getTime() + 86400000) } }] } },
+        { $group: { _id: { d: { $dateToString: { format: "%Y-%m-%d", date: "$date" } }, t: "$type" }, total: { $sum: "$amount" } } },
+      ]);
+      for (const r of rows) {
+        const day = (daily[r._id.d] ||= { income: 0, expenses: 0 });
+        if (r._id.t === "income") day.income = r2(r.total);
+        else if (r._id.t === "expense") day.expenses = r2(r.total);
+      }
+    }
+
+    res.json({ items, total, page, pageSize, pages, totals, daily });
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+});
+
+// CSV of whatever the filters currently show
+const cell = (v) => {
+  if (v === null || v === undefined) return "";
+  let s;
+  if (v instanceof Date) s = v.toISOString().slice(0, 16).replace("T", " ");
+  else if (typeof v === "number") s = v.toFixed(2);
+  else {
+    s = String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`; // stops Excel running text as a formula
+  }
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+router.get("/export", async (req, res) => {
+  try {
+    const { match } = buildMatch(req.query, req.userId);
+    const txs = await Transaction.find(match).sort({ date: -1, createdAt: -1 }).limit(5000)
+      .populate("account", "name").populate("toAccount", "name").lean();
+    const head = ["Date", "Type", "Category", "Description", "Account", "To account", "Amount", "Fee", "Mood", "Tags", "Notes"];
+    const rows = txs.map((t) => [
+      t.date, t.type, t.category, t.description, t.account?.name, t.toAccount?.name,
+      t.amount, t.fee || 0, t.mood, (t.tags || []).join(" "), t.notes,
+    ]);
+    const body = "\uFEFF" + [head, ...rows].map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="pocketwise-transactions-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(body);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -191,6 +294,18 @@ router.get("/summary", async (req, res) => {
   res.json({ income, expenses, balance: r2(income - expenses), saved, byCategory });
 });
 
+router.post("/bulk-delete", async (req, res) => {
+  try {
+    const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).filter(isId).slice(0, 200);
+    if (!ids.length) return res.status(400).json({ message: "Select at least one transaction" });
+    let deleted = 0;
+    for (const id of ids) if (await deleteTx(req.userId, id)) deleted++;
+    res.json({ deleted });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 router.post("/", async (req, res) => {
   try {
     const { error, data } = await buildPayload(req.body, req.userId);
@@ -229,21 +344,51 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const tx = await Transaction.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const tx = await deleteTx(req.userId, req.params.id);
     if (!tx) return res.status(404).json({ message: "That transaction wasn't found" });
-
-    if (tx.type === "income") await reverseAutoSave(req.userId, tx._id);
-
-    // Deleting a savings entry also reverses it on the goal
-    if (tx.goal) {
-      const goal = await Goal.findOne({ _id: tx.goal, user: req.userId });
-      if (goal) {
-        const change = tx.account ? -tx.amount : tx.amount; // deposit → remove, withdrawal → put back
-        goal.saved = Math.max(0, r2(goal.saved + change));
-        await goal.save();
-      }
-    }
     res.json({ message: "Deleted" });
+  } catch {
+    res.status(404).json({ message: "That transaction wasn't found" });
+  }
+});
+
+/* ---------- Receipt photo (resized to a small JPEG in the browser first) ---------- */
+
+router.get("/:id/receipt", async (req, res) => {
+  try {
+    const tx = await Transaction.findOne({ _id: req.params.id, user: req.userId }).select("+receipt");
+    if (!tx || !tx.receipt) return res.status(404).json({ message: "There's no receipt photo on this transaction" });
+    res.json({ image: tx.receipt });
+  } catch {
+    res.status(404).json({ message: "There's no receipt photo on this transaction" });
+  }
+});
+
+router.put("/:id/receipt", async (req, res) => {
+  try {
+    const image = req.body.image;
+    if (typeof image !== "string" || !image.startsWith("data:image/jpeg;base64,"))
+      return res.status(400).json({ message: "Use a JPG or PNG photo" });
+    if (image.length > 1_500_000) return res.status(400).json({ message: "That photo is too large. Try a smaller one." });
+    const tx = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId },
+      { receipt: image, hasReceipt: true }
+    ).select("_id");
+    if (!tx) return res.status(404).json({ message: "That transaction wasn't found" });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.delete("/:id/receipt", async (req, res) => {
+  try {
+    const tx = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId },
+      { $unset: { receipt: 1 }, hasReceipt: false }
+    ).select("_id");
+    if (!tx) return res.status(404).json({ message: "That transaction wasn't found" });
+    res.json({ ok: true });
   } catch {
     res.status(404).json({ message: "That transaction wasn't found" });
   }
