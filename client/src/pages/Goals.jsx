@@ -186,7 +186,7 @@ export default function Goals() {
             <h3 className="mb-2 text-lg font-semibold">Recent Savings</h3>
             <TableCard>
               <table className="data-table">
-                <thead><tr><th>Date</th><th>Description</th><th>Account</th><th className="num">Goal change</th></tr></thead>
+                <thead><tr><th>Date</th><th>Description</th><th>Account</th><th className="num">Goal Change</th></tr></thead>
                 <tbody>
                   {(activity || []).map((t) => (
                     <tr key={t._id}>
