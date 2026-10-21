@@ -15,6 +15,13 @@
   --color-indigo-900: #173357;
   --color-indigo-950: #0e2038;
 
+  /* Slightly darker greys, greens, ambers and reds so text passes the 4.5:1 contrast rule */
+  --color-slate-400: #64748b;
+  --color-slate-500: #556070;
+  --color-green-600: #15803d;
+  --color-amber-600: #b45309;
+  --color-red-600: #c81e1e;
+
   --radius-lg: 0.375rem;
   --radius-xl: 0.5rem;
   --radius-2xl: 0.5rem;
@@ -44,29 +51,38 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#root {
-  min-height: 100dvh;
-}
-
 * {
   scrollbar-width: thin;
   scrollbar-color: #c5cad3 transparent;
 }
 
-.quick-add-button {
-  right: calc(1.25rem + env(safe-area-inset-right));
-  bottom: calc(1.25rem + env(safe-area-inset-bottom));
-}
-
 @layer base {
-  button:focus-visible,
-  a:focus-visible {
+  /* A visible outline on everything you can reach with the keyboard */
+  :where(a, button, summary, [role="radio"], [role="tab"], [tabindex]):focus-visible {
     outline: 2px solid var(--color-indigo-500);
     outline-offset: 2px;
   }
   /* Stops iPhones from zooming in when you tap a field */
   @media (max-width: 640px) {
     input, select, textarea { font-size: 16px; }
+  }
+}
+
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Fingers: touch screens get at least 44px targets */
+@media (pointer: coarse) {
+  button, select, input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; }
+  input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; }
+}
+
+/* People who ask their device for less motion get none */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -77,7 +93,7 @@ body {
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: #556070;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
@@ -87,6 +103,28 @@ body {
 .data-table tbody tr:hover td { background: #fafbfc; }
 .data-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .data-table .actions { text-align: right; white-space: nowrap; width: 1%; }
+
+/* On phones every table row becomes a small card. The column headings move beside each value
+   (Enhancer.jsx writes them into data-label) and stay available to screen readers. */
+@media (max-width: 639px) {
+  .data-table thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .data-table, .data-table tbody, .data-table tr { display: block; width: 100%; }
+  .data-table tr { padding: 0.5rem 0.875rem; border-bottom: 1px solid #e2e8f0; }
+  .data-table tbody tr:last-child { border-bottom: 0; }
+  .data-table td {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.3rem 0; border: 0; text-align: right;
+    max-width: none; white-space: normal; overflow: visible; text-overflow: clip;
+  }
+  .data-table td::before {
+    content: attr(data-label); flex: none; font-size: 0.75rem; font-weight: 600; color: #556070; text-align: left;
+  }
+  .data-table td[data-label=""]::before { display: none; }
+  .data-table td.actions { width: auto; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.5rem; }
+  .data-table tbody tr:hover td { background: transparent; }
+}
 
 /* No black box around charts */
 .recharts-wrapper,

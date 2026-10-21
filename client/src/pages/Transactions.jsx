@@ -195,7 +195,7 @@ export default function Transactions() {
         </div>
         <button onClick={() => { setUnsorted((u) => !u); setPage(1); }} aria-pressed={unsorted}
           className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${unsorted ? "border-amber-500 bg-amber-50 text-amber-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
-          <Inbox size={16} /> Needs sorting {inbox?.count > 0 && `(${inbox.count})`}
+          <Inbox size={16} /> Inbox {inbox?.count > 0 && `(${inbox.count})`}
         </button>
         <button onClick={() => setShowFilters((s) => !s)}
           className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${showFilters || activeCount ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>

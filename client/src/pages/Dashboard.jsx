@@ -111,8 +111,9 @@ export default function Dashboard() {
 
       {error && <ErrorBar message={error} onRetry={load} />}
 
-      <QuickCapture onCaptured={handleSaved} />
-
+      <div className="hidden sm:block">
+        <QuickCapture onCaptured={handleSaved} />
+      </div>
       {!summary && !error && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}</div>
@@ -122,7 +123,7 @@ export default function Dashboard() {
 
       {summary && (
         <>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
             <Stat label="Available Balance" value={hasSpendable ? formatMoney(available) : "—"}
                />
             <div title={safeTitle}>

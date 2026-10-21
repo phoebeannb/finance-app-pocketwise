@@ -23,3 +23,12 @@ export const setCurrency = (code) => {
 
 export const formatMoney = (n) => formatterFor(current).format(n);
 export const formatMoneyIn = (code, n) => formatterFor(code).format(n);
+
+// Short form for chart axes: ₱600, ₱10K, ₱1.2M
+export const formatMoneyCompact = (n) => {
+  const key = `compact:${current}`;
+  cache[key] ||= new Intl.NumberFormat(LOCALES[current] || "en-US", {
+    style: "currency", currency: current, notation: "compact", maximumFractionDigits: 1,
+  });
+  return cache[key].format(n);
+};
