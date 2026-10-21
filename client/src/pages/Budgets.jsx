@@ -110,7 +110,7 @@ export default function Budgets() {
             <Stat label="Budget" value={formatMoney(totals.limit)} />
             <Stat label="Spent on budgeted categories" value={formatMoney(totals.spent)} color="text-red-600" />
             <Stat label="Spending without a budget" value={formatMoney(unbudgeted.reduce((s, c) => s + c.total, 0))}
-            color="text-amber-600" hint="Not counted against any limit here" />
+            color="text-amber-600" />
             <Stat label={totals.left < 0 ? "Over by" : "Remaining"} value={formatMoney(Math.abs(totals.left))}
               color={totals.left < 0 ? "text-red-600" : "text-green-600"} />
           </div>

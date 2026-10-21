@@ -265,9 +265,9 @@ export default function Transactions() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-semibold">Transactions</h2>
         <div className="flex flex-wrap gap-2">
-          <button onClick={exportCsv} disabled={exporting}
+       <button onClick={exportCsv} disabled={exporting}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
-            <Download size={16} aria-hidden="true" /> {exporting ? "Preparing..." : "Export CSV"}
+          <Download size={16} aria-hidden="true" /> {exporting ? "Preparing..." : "Export CSV"}
           </button>
           <button onClick={() => setImportOpen(true)}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
@@ -275,7 +275,7 @@ export default function Transactions() {
           </button>
           <button onClick={openAdd}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            <Plus size={16} aria-hidden="true" /> Add transaction
+            <Plus size={16} aria-hidden="true" /> Add Transaction
           </button>
         </div>
       </div>
