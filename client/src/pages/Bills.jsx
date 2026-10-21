@@ -137,9 +137,9 @@ export default function Bills() {
       {items && (
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Bills & subscriptions per month" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
-            <Stat label="Due in the next 7 days" value={formatMoney(soonTotal)} hint={plural(soon.length, "bill")} />
-            <Stat label="Recurring income per month" value={formatMoney(monthlyIncome)} color="text-green-600" />
+            <Stat label="Monthly Bills" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
+            <Stat label="Weekly Bills" value={formatMoney(soonTotal)} hint={plural(soon.length, "bill")} />
+            <Stat label="Recurring Income" value={formatMoney(monthlyIncome)} color="text-green-600" />
             <Stat label="Marked as unused" value={formatMoney(unusedMonthly)}
               color={unusedMonthly > 0 ? "text-amber-600" : "text-slate-900"}
              />

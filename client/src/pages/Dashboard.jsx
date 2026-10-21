@@ -101,9 +101,7 @@ export default function Dashboard() {
             <button onClick={() => setMonth(shiftMonth(month, 1))} disabled={isCurrent} aria-label="Next month"
               className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"><ChevronRight size={18} /></button>
           </div>
-          {!isCurrent && (
-            <button onClick={() => setMonth(monthNow())} className="text-sm font-medium text-indigo-600 hover:underline">This month</button>
-          )}
+           {!isCurrent}
           <button onClick={() => setModalOpen(true)}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
             <Plus size={16} /> Add Transaction
@@ -125,7 +123,7 @@ export default function Dashboard() {
       {summary && (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
-            <Stat label="Available balance" value={hasSpendable ? formatMoney(available) : "—"}
+            <Stat label="Available Balance" value={hasSpendable ? formatMoney(available) : "—"}
                />
             <div title={safeTitle}>
               <Stat label="Safe to spend today" value={safeValue} hint={safeHint} color={safeColor} />
