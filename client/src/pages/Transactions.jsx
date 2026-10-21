@@ -152,7 +152,7 @@ export default function Transactions() {
           </button>
           <button onClick={openAdd}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            <Plus size={16} /> Add transaction
+            <Plus size={16} /> Add Transaction
           </button>
         </div>
       </div>
@@ -260,7 +260,7 @@ export default function Transactions() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>When</th><th>Category</th><th>Description</th><th>Account</th>
+                <th>Date</th><th>Category</th><th>Description</th><th>Account</th>
                 <th className="text-center" title="How you were feeling">Mood</th>
                 <th className="num">Amount</th><th className="actions" />
               </tr>

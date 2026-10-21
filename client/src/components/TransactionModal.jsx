@@ -122,7 +122,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={editing ? "Edit transaction" : "Add transaction"} closeOnEsc={!catOpen}>
+      <Modal open={open} onClose={onClose} title={editing ? "Edit transaction" : "Add Transaction"} closeOnEsc={!catOpen}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</p>}
 

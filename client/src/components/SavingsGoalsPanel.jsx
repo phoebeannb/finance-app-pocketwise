@@ -20,9 +20,9 @@ export default function SavingsGoalsPanel({ refreshKey = 0 }) {
     <div className="rounded-lg border border-slate-200 bg-white p-5">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold">Savings goals</h3>
+          <h3 className="text-lg font-semibold">Savings Goals</h3>
         </div>
-        <Link to="/goals" className="text-sm font-medium text-indigo-600 hover:underline">Manage goals</Link>
+        <Link to="/goals" className="text-sm font-medium text-indigo-600 hover:underline">Manage Goals</Link>
       </div>
 
       {failed && <p className="text-red-600">Couldn't load your goals. Refresh the page to try again.</p>}

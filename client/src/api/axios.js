@@ -13,8 +13,8 @@ api.interceptors.request.use((config) => {
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function txAdded(d) {
-  const base = d?.type === "income" ? "Income added." : d?.type === "transfer" ? "Transfer added." : "Expense added.";
-  return d?.autoSaved > 0 ? `${base} ${formatMoney(d.autoSaved)} was moved to your savings goals.` : base;
+  const base = d?.type === "income" ? "Income added." : d?.type === "transfer" ? "Transfer Added." : "Expense Added.";
+  return d?.autoSaved > 0 ? `${base} ${formatMoney(d.autoSaved)} was moved to your savings Goals.` : base;
 }
 
 // [method, address pattern, message]. A function builds the message from the response; returning nothing stays quiet.

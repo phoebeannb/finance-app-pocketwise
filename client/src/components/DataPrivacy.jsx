@@ -8,7 +8,7 @@ import { Block, Row, inputClass, secondaryBtn } from "./SettingsUI";
 const EXPORTS = [
   ["transactions", "Transactions", "Export all income, expenses, and transfers to a CSV file.", "csv"],
   ["accounts", "Accounts", "Export your accounts and opening balances to a CSV file.", "csv"],
-  ["goals", "Savings goals", "Export your savings targets and current progress to a CSV file.", "csv"],
+  ["goals", "Savings Goals", "Export your savings targets and current progress to a CSV file.", "csv"],
   ["all", "Full backup", "Download a complete backup of your data, including transactions, accounts, budgets, bills, subscriptions, savings goals, and categories in JSON format.", "json"],
 ];
 
@@ -56,7 +56,7 @@ export default function DataPrivacy() {
 
   return (
     <div>
-      <Block title="Export your data" description="Download a copy of your financial data for your records or use in other applications.">
+      <Block title="Export Data" description="Download a copy of your financial data for your records or use in other applications.">
         {EXPORTS.map(([what, name, desc, ext]) => (
           <Row key={what} label={name} hint={desc}>
             <button onClick={() => download(what, ext)} disabled={!!busy} className={secondaryBtn}>
@@ -66,14 +66,12 @@ export default function DataPrivacy() {
         ))}
       </Block>
 
-      <Block title="Delete account" description="Permanently delete your account and all associated data.">
-        <Row label="Delete this account" hint="This can't be undone. Download a backup first.">
+        <Row label="Delete Account" hint="This can't be undone. Download a backup first.">
           <button onClick={openDelete}
             className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
             Delete Account
           </button>
         </Row>
-      </Block>
 
       <Modal open={delOpen} onClose={() => setDelOpen(false)} title="Delete your account" size="max-w-md">
         <form onSubmit={submitDelete} className="space-y-3">

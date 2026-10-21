@@ -106,7 +106,7 @@ export default function Dashboard() {
           )}
           <button onClick={() => setModalOpen(true)}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            <Plus size={16} /> Add transaction
+            <Plus size={16} /> Add Transaction
           </button>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function Dashboard() {
 
           <div className="mt-6">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Recent transactions</h3>
+              <h3 className="text-lg font-semibold">Recent Transactions</h3>
               <Link to="/transactions" className="text-sm font-medium text-indigo-600 hover:underline">View all</Link>
             </div>
             <TableCard>

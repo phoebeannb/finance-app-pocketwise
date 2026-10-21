@@ -57,11 +57,11 @@ export default function ProfileInfo() {
   return (
     <div>
       <form onSubmit={saveProfile}>
-        <Block title="Account" description="This is how you appear in PocketWise and how you log in.">
+        <Block title="Account">
           <Row label="Name">
             <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} required className={inputClass} />
           </Row>
-          <Row label="Email address" hint="Used to log in and to reset your password.">
+          <Row label="Email Address">
             <input type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} required className={inputClass} />
           </Row>
         </Block>

@@ -77,7 +77,6 @@ export default function CategoriesManager() {
 
       {error && <ErrorBar message={error} onRetry={load} />}
 
-      <h3 className="mb-2 font-semibold">Your categories</h3>
       <TableCard>
         <table className="data-table">
           <thead><tr><th>Name</th><th>Used in</th><th className="actions" /></tr></thead>
@@ -97,7 +96,6 @@ export default function CategoriesManager() {
         {cats && mine.length === 0 && <p className="p-6 text-center text-slate-500">You haven't added any {type} categories yet.</p>}
         {!cats && !error && <p className="p-6 text-center text-slate-500">Loading...</p>}
       </TableCard>
-      <p className="mt-2 text-xs text-slate-500">Renaming also updates your past transactions, budgets and bills.</p>
 
       <h3 className="mb-2 mt-8 font-semibold">Built-in categories</h3>
       <div className="flex flex-wrap gap-2">
@@ -105,7 +103,6 @@ export default function CategoriesManager() {
           <span key={b} className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-sm text-slate-600">{b}</span>
         ))}
       </div>
-      <p className="mt-2 text-xs text-slate-500">Built-in categories can't be renamed or removed.</p>
 
       <CategoryModal open={addOpen} type={type} existing={existing} onClose={() => setAddOpen(false)} onCreated={() => load()} />
 
