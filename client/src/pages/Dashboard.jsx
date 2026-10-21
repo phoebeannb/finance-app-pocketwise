@@ -132,8 +132,7 @@ export default function Dashboard() {
             </div>
             <Stat label="Income" value={formatMoney(summary.income)} color="text-green-600" />
             <Stat label="Expenses" value={formatMoney(summary.expenses)} color="text-red-600" />
-            <Stat label="Savings rate" value={`${savingsRate}%`}
-              hint={summary.saved > 0 ? `${formatMoney(summary.saved)} moved to goals` : "Nothing moved to goals yet"}
+            <Stat label="Savings Rate" value={`${savingsRate}%`}
               color={savingsRate < 0 ? "text-red-600" : "text-slate-900"} />
           </div>
 
