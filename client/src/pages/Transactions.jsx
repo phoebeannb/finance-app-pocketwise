@@ -1,23 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, SlidersHorizontal, Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Plus, Pencil, Trash2, Search, SlidersHorizontal, Upload, X, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
 import api from "../api/axios";
 import { formatMoney } from "../utils/format";
-import { fmtDateTime } from "../utils/datetime";
+import { fmtDateTime, fmtTime, relativeDay, todayKey } from "../utils/datetime";
 import { isSavings, txTitle } from "../utils/txDisplay";
-import { txAccount, txNote, txSign, txColor } from "../utils/txTable";
+import { txAccount, txNote, hasNote, txSign, txColor } from "../utils/txTable";
+import { moodOf } from "../utils/moods";
 import useCategories from "../hooks/useCategories";
 import TransactionModal from "../components/TransactionModal";
 import ConfirmModal from "../components/ConfirmModal";
 import ImportModal from "../components/ImportModal";
+import InboxList from "../components/InboxList";
+import CategoryLabel from "../components/CategoryLabel";
+import Modal from "../components/Modal";
 import Skeleton from "../components/Skeleton";
 import { IconButton, TableCard, ErrorBar } from "../components/ui";
 
 const PAGE_SIZE = 20;
 const TYPE_TABS = [["all", "All"], ["income", "Income"], ["expense", "Expense"], ["transfer", "Transfer"]];
 const emptyFilters = { q: "", type: "all", category: "", account: "", from: "", to: "", min: "", max: "" };
+const DISMISS_KEY = "pw_inbox_dismissed";
 
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 function useDebounced(value, ms = 300) {
   const [v, setV] = useState(value);
@@ -28,13 +35,32 @@ function useDebounced(value, ms = 300) {
   return v;
 }
 
+function readDismissed() {
+  try { return JSON.parse(localStorage.getItem(DISMISS_KEY)); } catch { return null; }
+}
+
+// A full sentence that says exactly what is about to be deleted
+function deleteMessage(t) {
+  if (!t) return "";
+  if (isSavings(t))
+    return "Are you sure you want to delete this savings entry? The amount will also be taken back out of the goal.";
+  return `Are you sure you want to delete this transaction? (${txSign(t)}${formatMoney(t.amount)} · ${txTitle(t)} · ${relativeDay(t.date)}) This can't be undone.`;
+}
+
 export default function Transactions() {
+  const [params] = useSearchParams();
   const [filters, setFilters] = useState(emptyFilters);
+  const [unsorted, setUnsorted] = useState(params.get("inbox") === "1");
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState("");
+
+  const [inbox, setInbox] = useState(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxTick, setInboxTick] = useState(0);
+  const [dismissed, setDismissed] = useState(readDismissed);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -49,9 +75,9 @@ export default function Transactions() {
   const dmax = useDebounced(filters.max);
 
   const update = (patch) => { setFilters((f) => ({ ...f, ...patch })); setPage(1); };
-  const clearAll = () => { setFilters(emptyFilters); setPage(1); };
+  const clearAll = () => { setFilters(emptyFilters); setUnsorted(false); setPage(1); };
 
-  const params = useMemo(() => ({
+  const queryParams = useMemo(() => ({
     q: dq || undefined,
     type: filters.type === "all" ? undefined : filters.type,
     category: filters.category || undefined,
@@ -60,27 +86,57 @@ export default function Transactions() {
     to: filters.to || undefined,
     min: dmin || undefined,
     max: dmax || undefined,
+    uncategorized: unsorted ? "1" : undefined,
     page,
     pageSize: PAGE_SIZE,
-  }), [dq, dmin, dmax, filters.type, filters.category, filters.account, filters.from, filters.to, page]);
+  }), [dq, dmin, dmax, filters.type, filters.category, filters.account, filters.from, filters.to, unsorted, page]);
 
   const load = useCallback(
-    () => api.get("/transactions/search", { params })
+    () => api.get("/transactions/search", { params: queryParams })
       .then(({ data }) => { setData(data); setError(""); })
       .catch((err) => setError(err.response ? "Could not load transactions." : "Can't reach the server. Make sure it's running, then try again.")),
-    [params]
+    [queryParams]
+  );
+  const loadInbox = useCallback(
+    () => api.get("/transactions/inbox", { params: { limit: 1 } })
+      .then(({ data }) => setInbox({ count: data.count, yesterday: data.yesterday }))
+      .catch(() => {}),
+    []
   );
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadInbox(); }, [loadInbox]);
   useEffect(() => { api.get("/accounts").then(({ data }) => setAccounts(data)).catch(() => {}); }, []);
+
+  const reloadAll = () => { load(); loadInbox(); setInboxTick((k) => k + 1); };
 
   useEffect(() => {
     if (data && data.pages > 0 && page > data.pages) setPage(data.pages);
   }, [data, page]);
 
+  // Close the sorting window once the inbox is empty
+  useEffect(() => {
+    if (inboxOpen && inbox && inbox.count === 0) setInboxOpen(false);
+  }, [inboxOpen, inbox]);
+
   const activeCount = [filters.category, filters.account, filters.from, filters.to, filters.min, filters.max].filter(Boolean).length;
-  const hasAnyFilter = activeCount > 0 || filters.q || filters.type !== "all";
+  const hasAnyFilter = activeCount > 0 || filters.q || filters.type !== "all" || unsorted;
   const start = data ? (data.page - 1) * data.pageSize + 1 : 0;
   const end = data ? start + data.items.length - 1 : 0;
+
+  // A gentle, dismissible nudge. It comes back tomorrow, or sooner if more items pile up.
+  const bannerVisible =
+    inbox && inbox.count > 0 && !unsorted &&
+    !(dismissed && dismissed.day === todayKey() && inbox.count <= dismissed.count);
+  const dismissBanner = () => {
+    const v = { day: todayKey(), count: inbox.count };
+    localStorage.setItem(DISMISS_KEY, JSON.stringify(v));
+    setDismissed(v);
+  };
+  const bannerText = inbox
+    ? inbox.yesterday > 0
+      ? `You have ${plural(inbox.yesterday, "uncategorized transaction")} from yesterday.${inbox.count > inbox.yesterday ? ` ${inbox.count - inbox.yesterday} older ${inbox.count - inbox.yesterday === 1 ? "one is" : "ones are"} waiting too.` : ""}`
+      : `You have ${plural(inbox.count, "uncategorized transaction")} waiting in your inbox.`
+    : "";
 
   const openAdd = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (t) => { setEditing(t); setModalOpen(true); };
@@ -103,8 +159,23 @@ export default function Transactions() {
 
       {error && <ErrorBar message={error} onRetry={load} />}
 
+      {bannerVisible && (
+        <div role="status" className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span aria-hidden="true">💡</span>
+          <p className="flex-1">
+            {bannerText}{" "}
+            <button onClick={() => setInboxOpen(true)} className="font-medium underline hover:text-amber-950">
+              Click here to quickly sort them.
+            </button>
+          </p>
+          <button onClick={dismissBanner} aria-label="Dismiss this notice" className="shrink-0 rounded p-0.5 text-amber-700 hover:bg-amber-100">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div className="relative w-full min-w-0 flex-1 sm:min-w-60">
+        <div className="relative min-w-60 flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={filters.q} onChange={(e) => update({ q: e.target.value })} placeholder="Search description or category"
             className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
@@ -122,6 +193,10 @@ export default function Transactions() {
             </button>
           ))}
         </div>
+        <button onClick={() => { setUnsorted((u) => !u); setPage(1); }} aria-pressed={unsorted}
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${unsorted ? "border-amber-500 bg-amber-50 text-amber-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
+          <Inbox size={16} /> Needs sorting {inbox?.count > 0 && `(${inbox.count})`}
+        </button>
         <button onClick={() => setShowFilters((s) => !s)}
           className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${showFilters || activeCount ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
           <SlidersHorizontal size={16} /> Filters {activeCount > 0 && `(${activeCount})`}
@@ -185,23 +260,36 @@ export default function Transactions() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Date</th><th>Category</th><th>Description</th><th>Account</th><th className="num">Amount</th><th className="actions" />
+                <th>When</th><th>Category</th><th>Description</th><th>Account</th>
+                <th className="text-center" title="How you were feeling">Mood</th>
+                <th className="num">Amount</th><th className="actions" />
               </tr>
             </thead>
             <tbody>
-              {data.items.map((t) => (
-                <tr key={t._id}>
-                  <td className="whitespace-nowrap text-slate-500">{fmtDateTime(t.date)}</td>
-                  <td className="font-medium">{txTitle(t)}</td>
-                  <td className="max-w-65 truncate text-slate-600" title={txNote(t)}>{txNote(t)}</td>
-                  <td className="text-slate-600">{txAccount(t)}</td>
-                  <td className={`num font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</td>
-                  <td className="actions">
-                    {!isSavings(t) && <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(t)} />}
-                    <IconButton icon={Trash2} label="Delete" danger onClick={() => setToDelete(t)} />
-                  </td>
-                </tr>
-              ))}
+              {data.items.map((t) => {
+                const mood = moodOf(t.mood);
+                return (
+                  <tr key={t._id}>
+                    <td className="whitespace-nowrap" title={fmtDateTime(t.date)}>
+                      <div className="font-medium text-slate-700">{relativeDay(t.date)}</div>
+                      {fmtTime(t.date) && <div className="text-xs text-slate-500">{fmtTime(t.date)}</div>}
+                    </td>
+                    <td><CategoryLabel t={t} /></td>
+                    <td className={`max-w-[260px] truncate ${hasNote(t) ? "text-slate-600" : "italic text-slate-400"}`} title={txNote(t)}>
+                      {txNote(t)}
+                    </td>
+                    <td className="text-slate-600">{txAccount(t)}</td>
+                    <td className="text-center text-lg">
+                      {mood && <span role="img" aria-label={mood.label} title={mood.label}>{mood.emoji}</span>}
+                    </td>
+                    <td className={`num font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</td>
+                    <td className="actions">
+                      {!isSavings(t) && <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(t)} />}
+                      <IconButton icon={Trash2} label="Delete" danger onClick={() => setToDelete(t)} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {data.items.length === 0 && (
@@ -227,16 +315,19 @@ export default function Transactions() {
         </TableCard>
       )}
 
-      <TransactionModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSaved={load} />
-      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onImported={load} />
+      <TransactionModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSaved={reloadAll} />
+      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onImported={reloadAll} />
+
+      <Modal open={inboxOpen} onClose={() => setInboxOpen(false)} title="Sort your inbox" size="max-w-5xl">
+        <InboxList limit={20} refreshKey={inboxTick} onChanged={reloadAll} />
+      </Modal>
 
       <ConfirmModal
         open={!!toDelete}
-        message={toDelete && isSavings(toDelete)
-          ? "Delete this savings entry? The amount also comes back out of the goal."
-          : "Delete this transaction?"}
+        title="Delete transaction"
+        message={deleteMessage(toDelete)}
         onClose={() => setToDelete(null)}
-        onConfirm={async () => { await api.delete(`/transactions/${toDelete._id}`); load(); }}
+        onConfirm={async () => { await api.delete(`/transactions/${toDelete._id}`); reloadAll(); }}
       />
     </div>
   );

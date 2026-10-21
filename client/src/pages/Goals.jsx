@@ -126,9 +126,9 @@ export default function Goals() {
       {goals && (
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Saved across all goals" value={formatMoney(saved)} color="text-green-600" />
-            <Stat label="Total target" value={formatMoney(target)} />
-            <Stat label="Overall progress" value={`${pctText(overall)}%`} hint={`${reached} of ${list.length} goal${list.length === 1 ? "" : "s"} reached`} />
+            <Stat label="Total Saved" value={formatMoney(saved)} color="text-green-600" />
+            <Stat label="Total Target" value={formatMoney(target)} />
+            <Stat label="Overall Progress" value={`${pctText(overall)}%`} hint={`${reached} of ${list.length} goal${list.length === 1 ? "" : "s"} reached`} />
             <Stat label="Auto-save" value={`${percentText(usedAll)} of income`} hint={`${percentText(freeAll)} not allocated`} />
           </div>
 
@@ -176,7 +176,7 @@ export default function Goals() {
           </TableCard>
 
           <div className="mt-8">
-            <h3 className="mb-2 text-lg font-semibold">Recent savings activity</h3>
+            <h3 className="mb-2 text-lg font-semibold">Recent Savings</h3>
             <TableCard>
               <table className="data-table">
                 <thead><tr><th>Date</th><th>Description</th><th>Account</th><th className="num">Goal change</th></tr></thead>

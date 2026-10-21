@@ -8,9 +8,10 @@ import { formatMoney } from "../utils/format";
 import { nowLocalInput, toStored, toInput } from "../utils/datetime";
 import Modal from "./Modal";
 import CategoryModal from "./CategoryModal";
+import MoodPicker from "./MoodPicker";
 
 const blank = () => ({
-  type: "expense", amount: "", category: "", description: "", date: nowLocalInput(),
+  type: "expense", amount: "", category: "", description: "", mood: "", date: nowLocalInput(),
   account: "", toAccount: "", hasFee: false, fee: "",
 });
 
@@ -59,6 +60,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
         amount: editing.amount,
         category: editing.category || "",
         description: editing.description || "",
+        mood: editing.mood || "",
         date: toInput(editing.date),
         account: editing.account?._id || "",
         toAccount: editing.toAccount?._id || "",
@@ -81,6 +83,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
   const setType = (type) =>
     setForm({
       ...form, type, category: "",
+      mood: type === "transfer" ? "" : form.mood,
       toAccount: type === "transfer" ? form.toAccount : "",
       hasFee: type === "transfer" ? form.hasFee : false,
       fee: type === "transfer" ? form.fee : "",
@@ -99,6 +102,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
       amount: Number(form.amount),
       category: isTransfer ? "" : form.category,
       description: form.description,
+      mood: isTransfer ? "" : form.mood,
       date: toStored(form.date),
       account: form.account || null,
       toAccount: isTransfer ? form.toAccount || null : null,
@@ -215,6 +219,12 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
             <input name="description" placeholder="Optional note" value={form.description}
               onChange={handleChange} className={field} />
           </Field>
+
+          {!isTransfer && (
+            <Field label="How were you feeling? (optional)">
+              <MoodPicker value={form.mood} onChange={(mood) => setForm({ ...form, mood })} />
+            </Field>
+          )}
 
           <Field label="Date & time">
             <input name="date" type="datetime-local" value={form.date} onChange={handleChange} required className={field} />

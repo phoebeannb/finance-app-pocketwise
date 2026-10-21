@@ -30,7 +30,7 @@ async function existingKeys(userId, dates) {
   return new Set(txs.map((t) => dupKey(t.type, t.date.toISOString().slice(0, 10), t.amount, t.description)));
 }
 
-// Suggest a category for each row and flag duplicates
+// Fill in a category for each row (the file's own category wins) and flag duplicates
 router.post("/suggest", async (req, res) => {
   try {
     const rows = Array.isArray(req.body.rows) ? req.body.rows.slice(0, MAX_ROWS) : [];
@@ -38,7 +38,8 @@ router.post("/suggest", async (req, res) => {
     const keys = await existingKeys(req.userId, rows.map((r) => r.date));
 
     const suggestions = rows.map((r) => {
-      const s = suggestCategory(r.description, r.type, rules);
+      const given = String(r.category || "").trim().slice(0, 60);
+      const s = given ? { category: given, source: "file" } : suggestCategory(r.description, r.type, rules);
       const ymd = String(r.date || "").slice(0, 10);
       return { category: s.category, source: s.source, duplicate: keys.has(dupKey(r.type, ymd, r.amount, r.description)) };
     });
@@ -48,20 +49,27 @@ router.post("/suggest", async (req, res) => {
   }
 });
 
-// Save the chosen rows, and any rules the user wants remembered
+// Save the chosen rows, and any rules the person wants remembered
 router.post("/commit", async (req, res) => {
   try {
     const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
-    if (!rows.length) return res.status(400).json({ message: "Nothing to import" });
-    if (rows.length > MAX_ROWS) return res.status(400).json({ message: `Import up to ${MAX_ROWS} rows at a time` });
+    if (!rows.length) return res.status(400).json({ message: "Nothing to import. Select at least one row." });
+    if (rows.length > MAX_ROWS) return res.status(400).json({ message: `Import up to ${MAX_ROWS} rows at a time. Split the file by month.` });
 
-    let account = null;
+    // The account used when a row doesn't name one
+    let defaultAccount = null;
     if (req.body.account) {
-      if (!mongoose.isValidObjectId(req.body.account)) return res.status(400).json({ message: "Invalid account" });
+      if (!mongoose.isValidObjectId(req.body.account)) return res.status(400).json({ message: "That account isn't valid. Choose one from the list" });
       const acc = await Account.findOne({ _id: req.body.account, user: req.userId });
-      if (!acc) return res.status(400).json({ message: "Account not found" });
-      account = acc._id;
+      if (!acc) return res.status(400).json({ message: "That account wasn't found. It may have been deleted" });
+      defaultAccount = acc._id;
     }
+
+    // Accounts named on individual rows must belong to this user
+    const rowIds = [...new Set(rows.map((r) => r.account).filter((id) => id && mongoose.isValidObjectId(id)))];
+    const owned = new Set(
+      (await Account.find({ _id: { $in: rowIds }, user: req.userId }).select("_id").lean()).map((a) => String(a._id))
+    );
 
     const valid = [];
     let invalid = 0;
@@ -79,7 +87,8 @@ router.post("/commit", async (req, res) => {
         ymd: r.date.slice(0, 10),
         category: String(r.category || "").trim().slice(0, 60),
         description: String(r.description || "").trim().slice(0, 200),
-        force: r.force === true, // the user deliberately kept a flagged duplicate
+        account: r.account && owned.has(String(r.account)) ? r.account : defaultAccount,
+        force: r.force === true, // the person deliberately kept a flagged duplicate
       });
     }
 
@@ -90,7 +99,7 @@ router.post("/commit", async (req, res) => {
       if (!v.force && keys.has(dupKey(v.type, v.ymd, v.amount, v.description))) { skippedDuplicates++; continue; }
       toInsert.push({
         user: req.userId, type: v.type, amount: v.amount, category: v.category,
-        description: v.description, date: v.date, account,
+        description: v.description, date: v.date, account: v.account,
       });
     }
     if (toInsert.length) await Transaction.insertMany(toInsert, { ordered: false });

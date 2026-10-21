@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Pause, Play, SkipForward, WifiOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Pause, Play, SkipForward } from "lucide-react";
 import api from "../api/axios";
 import { formatMoney } from "../utils/format";
 import { fmtDate } from "../utils/datetime";
+import { toast } from "../utils/toast";
 import useCategories from "../hooks/useCategories";
 import Modal from "../components/Modal";
 import ConfirmModal from "../components/ConfirmModal";
 import CategoryModal from "../components/CategoryModal";
-import TxIcon from "../components/TxIcon";
+import ValueRating from "../components/ValueRating";
 import Skeleton from "../components/Skeleton";
+import { IconButton, Stat, TableCard, ErrorBar } from "../components/ui";
 
 const CADENCES = [["weekly", "Every week"], ["monthly", "Every month"], ["yearly", "Every year"]];
-const CAD_WORD = { weekly: "week", monthly: "month", yearly: "year" };
+const CAD_LABEL = { weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" };
 
 const pad = (n) => String(n).padStart(2, "0");
 const todayYmd = () => {
@@ -23,22 +25,13 @@ const daysUntil = (iso) => {
   const today = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
   return Math.round((new Date(iso).getTime() - today) / 86400000);
 };
-const when = (n) => (n <= 0 ? "Due today" : n === 1 ? "Tomorrow" : `In ${n} days`);
+const when = (n) => (n <= 0 ? "due today" : n === 1 ? "tomorrow" : `in ${n} days`);
 const perMonth = (i) => (i.cadence === "weekly" ? (i.amount * 52) / 12 : i.cadence === "yearly" ? i.amount / 12 : i.amount);
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const blank = () => ({ type: "expense", name: "", amount: "", category: "", account: "", cadence: "monthly", nextDate: todayYmd() });
 
 const field =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100";
-
-function Stat({ label, value, hint, color = "text-slate-900" }) {
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className={`mt-1 truncate text-2xl font-semibold ${color}`}>{value}</div>
-      {hint && <div className="text-xs text-slate-400">{hint}</div>}
-    </div>
-  );
-}
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 
 export default function Bills() {
   const [items, setItems] = useState(null);
@@ -65,13 +58,18 @@ export default function Bills() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const active = useMemo(() => (items || []).filter((i) => i.active), [items]);
-  const paused = useMemo(() => (items || []).filter((i) => !i.active), [items]);
+  const sorted = useMemo(
+    () => [...(items || [])].sort((a, b) => Number(b.active) - Number(a.active) || new Date(a.nextDate) - new Date(b.nextDate)),
+    [items]
+  );
+  const active = sorted.filter((i) => i.active);
   const bills = active.filter((i) => i.type === "expense");
   const monthlyBills = bills.reduce((s, i) => s + perMonth(i), 0);
   const monthlyIncome = active.filter((i) => i.type === "income").reduce((s, i) => s + perMonth(i), 0);
   const soon = bills.filter((i) => daysUntil(i.nextDate) <= 7);
   const soonTotal = soon.reduce((s, i) => s + i.amount, 0);
+  const unused = bills.filter((i) => i.valueRating === "unused");
+  const unusedMonthly = unused.reduce((s, i) => s + perMonth(i), 0);
 
   const baseCats = form.type === "income" ? income : expense;
   const cats = form.category && !baseCats.some((c) => c.toLowerCase() === form.category.toLowerCase())
@@ -106,103 +104,118 @@ export default function Bills() {
   };
 
   const act = async (path) => {
-    try { await api.post(path); load(); } catch { setError("That didn't work. Please try again."); }
+    try { await api.post(path); load(); } catch { /* the red message explains what went wrong */ }
   };
 
-  const Row = ({ i }) => {
-    const n = daysUntil(i.nextDate);
-    return (
-      <li className={`flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between ${i.active ? "" : "opacity-60"}`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <TxIcon t={{ type: i.type, category: i.category }} />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 font-medium">
-              {i.name}
-              {i.type === "income" && <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Income</span>}
-            </div>
-            <div className="truncate text-sm text-slate-500">
-              {formatMoney(i.amount)} every {CAD_WORD[i.cadence]}
-              {i.account?.name ? ` · ${i.account.name}` : ""}
-              {" · "}{i.active ? `Next: ${fmtDate(i.nextDate)} (${when(n)})` : "Paused"}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => act(`/recurring/${i._id}/skip`)} title="Skip the next due date"
-            className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1 text-sm hover:bg-slate-200"><SkipForward size={14} /> Skip next</button>
-          <button onClick={() => act(`/recurring/${i._id}/toggle`)}
-            className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1 text-sm hover:bg-slate-200">
-            {i.active ? <><Pause size={14} /> Pause</> : <><Play size={14} /> Resume</>}
-          </button>
-          <button onClick={() => openEdit(i)} className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1 text-sm hover:bg-slate-200"><Pencil size={14} /> Edit</button>
-          <button onClick={() => setToDelete(i)} className="flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1 text-sm text-red-600 hover:bg-red-100"><Trash2 size={14} /> Delete</button>
-        </div>
-      </li>
-    );
+  // The rating changes on screen straight away, then is saved. If saving fails it is put back.
+  const rate = async (item, rating) => {
+    if (item.valueRating === rating) return;
+    setItems((list) => list.map((x) => (x._id === item._id ? { ...x, valueRating: rating } : x)));
+    try {
+      await api.post(`/recurring/${item._id}/rating`, { rating }, { quiet: true });
+    } catch {
+      toast.error("We couldn't save that rating, so it was put back. Please try again.");
+      load();
+    }
   };
 
   return (
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Bills & Subscriptions</h2>
+          <h2 className="text-2xl font-semibold">Bills & Subscriptions</h2>
         </div>
         <button onClick={openAdd}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700">
-          <Plus size={18} /> Add bill
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+          <Plus size={16} /> Add bill
         </button>
       </div>
 
-      {error && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl bg-red-50 p-4 text-red-700">
-          <WifiOff size={20} />
-          <span className="flex-1">{error}</span>
-          <button onClick={load} className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-red-100">Try again</button>
-        </div>
-      )}
-
+      {error && <ErrorBar message={error} onRetry={load} />}
       {!items && !error && <div className="grid gap-4 sm:grid-cols-3">{[0, 1, 2].map((k) => <Skeleton key={k} className="h-24" />)}</div>}
 
       {items && (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="Monthly Expenses" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
-            <Stat label="Upcoming Payments" value={formatMoney(soonTotal)} hint={`${soon.length} bill${soon.length === 1 ? "" : "s"}`} />
-            <Stat label="Monthly Revenue" value={formatMoney(monthlyIncome)} color="text-green-600" />
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Bills & subscriptions per month" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
+            <Stat label="Due in the next 7 days" value={formatMoney(soonTotal)} hint={plural(soon.length, "bill")} />
+            <Stat label="Recurring income per month" value={formatMoney(monthlyIncome)} color="text-green-600" />
+            <Stat label="Marked as unused" value={formatMoney(unusedMonthly)}
+              color={unusedMonthly > 0 ? "text-amber-600" : "text-slate-900"}
+             />
           </div>
 
-          {items.length === 0 ? (
-            <div className="mt-6 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200/60">
-              <p className="text-slate-500">Nothing here yet. Add rent, Netflix, your salary, anything that repeats.</p>
-              <button onClick={openAdd} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700">Add your first one</button>
+          {unused.length > 0 && (
+            <div role="status" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              You marked {plural(unused.length, "bill")} as unused: {unused.map((i) => i.name).join(", ")}. That's{" "}
+              <b>{formatMoney(unusedMonthly)} a month</b> ({formatMoney(unusedMonthly * 12)} a year). If you're not using {unused.length === 1 ? "it" : "them"}, consider cancelling.
             </div>
-          ) : (
-            <>
-              <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60">
-                <h3 className="text-lg font-semibold">Upcoming</h3>
-                {active.length === 0 ? <p className="mt-2 text-slate-500">Everything is paused.</p> : (
-                  <ul className="divide-y divide-slate-100">{active.map((i) => <Row key={i._id} i={i} />)}</ul>
-                )}
-              </div>
-              {paused.length > 0 && (
-                <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60">
-                  <h3 className="text-lg font-semibold">Paused</h3>
-                  <ul className="divide-y divide-slate-100">{paused.map((i) => <Row key={i._id} i={i} />)}</ul>
-                </div>
-              )}
-            </>
           )}
+
+          <TableCard>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th><th>Type</th><th className="num">Amount</th><th>Repeats</th><th>Next due</th><th>Account</th>
+                  <th title="How much value do you get from this?">Value</th><th>Status</th><th className="actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((i) => {
+                  const n = daysUntil(i.nextDate);
+                  return (
+                    <tr key={i._id} className={i.active ? "" : "text-slate-400"}>
+                      <td>
+                        <div className="font-medium">{i.name}</div>
+                        {i.category && <div className="text-xs text-slate-500">{i.category}</div>}
+                      </td>
+                      <td>{i.type === "income" ? "Income" : "Bill"}</td>
+                      <td className={`num font-semibold ${i.type === "income" ? "text-green-600" : ""}`}>{formatMoney(i.amount)}</td>
+                      <td>{CAD_LABEL[i.cadence]}</td>
+                      <td className="whitespace-nowrap">
+                        {fmtDate(i.nextDate)}
+                        {i.active && <span className={`ml-1 text-xs ${n <= 3 ? "font-medium text-amber-600" : "text-slate-500"}`}>({when(n)})</span>}
+                      </td>
+                      <td>{i.account?.name || "—"}</td>
+                      <td>
+                        {i.type === "expense"
+                          ? <ValueRating value={i.valueRating || "neutral"} onChange={(r) => rate(i, r)} />
+                          : <span className="text-slate-400">—</span>}
+                      </td>
+                      <td>
+                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${i.active ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                          {i.active ? "Active" : "Paused"}
+                        </span>
+                      </td>
+                      <td className="actions">
+                        <IconButton icon={SkipForward} label="Skip next due date" onClick={() => act(`/recurring/${i._id}/skip`)} />
+                        <IconButton icon={i.active ? Pause : Play} label={i.active ? "Pause" : "Resume"} onClick={() => act(`/recurring/${i._id}/toggle`)} />
+                        <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(i)} />
+                        <IconButton icon={Trash2} label="Delete" danger onClick={() => setToDelete(i)} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {items.length === 0 && (
+              <div className="p-6 text-center text-slate-500">
+                Nothing here yet. Add rent, Netflix, your salary, anything that repeats.{" "}
+                <button onClick={openAdd} className="font-medium text-indigo-600 hover:underline">Add one</button>
+              </div>
+            )}
+          </TableCard>
         </>
       )}
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit bill" : "Add bill"} closeOnEsc={!catOpen}>
         <form onSubmit={save} className="space-y-3">
-          {formError && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{formError}</p>}
+          {formError && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{formError}</p>}
 
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
             {[["expense", "Bill or subscription"], ["income", "Recurring income"]].map(([v, label]) => (
               <button type="button" key={v} onClick={() => setForm({ ...form, type: v, category: "" })}
-                className={`rounded-lg py-2 text-sm font-medium ${form.type === v ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"}`}>{label}</button>
+                className={`rounded-md py-2 text-sm font-medium ${form.type === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>{label}</button>
             ))}
           </div>
 
@@ -211,13 +224,11 @@ export default function Bills() {
             <input name="name" placeholder={form.type === "income" ? "e.g. Salary" : "e.g. Netflix, Rent, Meralco"} value={form.name}
               onChange={handleChange} required maxLength={60} className={field} />
           </div>
-
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Amount</label>
             <input name="amount" type="number" step="0.01" min="0.01" placeholder="0.00" value={form.amount}
               onChange={handleChange} required className={field} />
           </div>
-
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Category</label>
             <div className="flex gap-2">
@@ -226,10 +237,9 @@ export default function Bills() {
                 {cats.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <button type="button" onClick={() => setCatOpen(true)} aria-label="Add category"
-                className="shrink-0 rounded-xl bg-indigo-50 px-3 text-indigo-600 hover:bg-indigo-100"><Plus size={18} /></button>
+                className="shrink-0 rounded-lg border border-slate-300 px-3 text-slate-600 hover:bg-slate-50"><Plus size={18} /></button>
             </div>
           </div>
-
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Account</label>
             <select name="account" value={form.account} onChange={handleChange} className={field}>
@@ -237,7 +247,6 @@ export default function Bills() {
               {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
             </select>
           </div>
-
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Repeats</label>
@@ -251,7 +260,7 @@ export default function Bills() {
             </div>
           </div>
 
-          <button type="submit" className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700">
+          <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
             {editing ? "Save changes" : "Add bill"}
           </button>
         </form>
@@ -267,7 +276,8 @@ export default function Bills() {
 
       <ConfirmModal
         open={!!toDelete}
-        message={`Delete "${toDelete?.name}"? Transactions it already added stay in your history.`}
+        title="Delete bill"
+        message={`Are you sure you want to delete "${toDelete?.name}"? Transactions it already added will stay in your history.`}
         onClose={() => setToDelete(null)}
         onConfirm={async () => { await api.delete(`/recurring/${toDelete._id}`); load(); }}
       />

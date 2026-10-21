@@ -1,3 +1,5 @@
+import { nowLocalInput, toStored } from "./datetime";
+
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 const pad = (n) => String(n).padStart(2, "0");
 
@@ -58,6 +60,16 @@ export function parseAmount(value) {
   return neg ? -n : n;
 }
 
+// "Income", "Expense", "Debit", "Cash in"... → "income" | "expense" | null
+const INCOME_WORDS = /^(income|in|credit|deposit|cash ?in|received|inflow|\+)$/i;
+const EXPENSE_WORDS = /^(expense|out|debit|withdraw(al)?|cash ?out|spent|outflow|payment|-)$/i;
+export function parseType(value) {
+  const s = String(value ?? "").trim();
+  if (INCOME_WORDS.test(s)) return "income";
+  if (EXPENSE_WORDS.test(s)) return "expense";
+  return null;
+}
+
 // Guess which column is which from the header names
 export function detectColumns(headers) {
   const find = (...res) => headers.find((h) => res.some((r) => r.test(h))) || "";
@@ -70,6 +82,9 @@ export function detectColumns(headers) {
   return {
     date: find(/date|posted|time/i),
     description: find(/descri|detail|merchant|narrat|particular|remark|memo|payee/i) || find(/reference|name/i),
+    category: find(/^categor/i),
+    account: find(/^(from |source )?account( name)?$/i, /^wallet$/i, /^bank$/i),
+    type: find(/^(transaction )?type$/i, /^kind$/i),
     amount: debit || credit ? "" : amount,
     debit,
     credit,
@@ -80,10 +95,14 @@ export function detectColumns(headers) {
 export function buildRows(raw, map, { dateFmt, positiveIsExpense }) {
   const rows = [];
   let unreadable = 0;
+  const today = toStored(nowLocalInput()); // used when the file has no date column
 
   raw.forEach((r, i) => {
-    const date = parseDateTime(r[map.date], dateFmt);
-    const description = String(r[map.description] ?? "").replace(/\s+/g, " ").trim();
+    const date = map.date ? parseDateTime(r[map.date], dateFmt) : today;
+    const text = (col) => (col ? String(r[col] ?? "").replace(/\s+/g, " ").trim() : "");
+    const description = text(map.description);
+    const category = text(map.category);
+    const accountName = text(map.account);
     let type = null;
     let amount = 0;
 
@@ -96,12 +115,14 @@ export function buildRows(raw, map, { dateFmt, positiveIsExpense }) {
       const n = parseAmount(r[map.amount]);
       if (Number.isFinite(n) && n !== 0) {
         amount = Math.abs(n);
-        type = (n < 0) !== !!positiveIsExpense ? "expense" : "income";
+        // A Type column ("Income" / "Expense") decides. Without one, the plus or minus sign does.
+        const t = map.type ? parseType(r[map.type]) : null;
+        type = t || ((n < 0) !== !!positiveIsExpense ? "expense" : "income");
       }
     }
 
     if (!date || !type || !(amount > 0)) { unreadable++; return; }
-    rows.push({ id: i, date, description, amount: Math.round(amount * 100) / 100, type });
+    rows.push({ id: i, date, description, category, accountName, amount: Math.round(amount * 100) / 100, type });
   });
 
   return { rows, unreadable };

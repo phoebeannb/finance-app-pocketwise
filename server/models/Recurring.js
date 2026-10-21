@@ -12,6 +12,8 @@ const recurringSchema = new mongoose.Schema({
   nextDate: { type: Date, required: true },
   lastPosted: { type: Date, default: null },
   active: { type: Boolean, default: true },
+  // How much value the person gets from this bill (the HCI "value rating")
+  valueRating: { type: String, enum: ["high", "neutral", "unused"], default: "neutral" },
 }, { timestamps: true });
 
 recurringSchema.index({ active: 1, nextDate: 1 });
