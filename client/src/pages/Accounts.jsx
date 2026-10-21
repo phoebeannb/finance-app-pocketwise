@@ -84,8 +84,8 @@ export default function Accounts() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat label="Total Assets" value={formatMoney(assets)} color="text-green-600" />
-        <Stat label="Total Liabilities" value={formatMoney(liabilities)} color="text-red-600" />
-        <Stat label="Net Worth" value={formatMoney(netWorth)} color={netWorth < 0 ? "text-red-600" : "text-slate-900"} />
+        <Stat label="What I owe" value={formatMoney(liabilities)} color="text-red-600" />
+        <Stat label="Total Money" value={formatMoney(netWorth)} color={netWorth < 0 ? "text-red-600" : "text-slate-900"} />
       </div>
 
       <TableCard>
