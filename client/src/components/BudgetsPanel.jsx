@@ -120,7 +120,7 @@ export default function BudgetsPanel({ refreshKey = 0 }) {
           <input type="number" min="1" step="0.01" placeholder="e.g. 5000" value={form.limit}
             onChange={(e) => setForm({ ...form, limit: e.target.value })} required className={field} />
           <button type="submit" className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700">
-            {editing ? "Save changes" : "Add budget"}
+            {editing ? "Save Changes" : "Add budget"}
           </button>
         </form>
       </Modal>

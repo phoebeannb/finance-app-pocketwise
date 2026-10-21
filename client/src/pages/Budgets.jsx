@@ -141,7 +141,14 @@ export default function Budgets() {
                       </td>
                       <td className="actions">
                         <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(b)} />
-                        <IconButton icon={Trash2} label="Delete" danger onClick={() => setToDelete(b)} />
+                        <IconButton icon={Trash2} label="Delete" danger onClick={() => undoableDelete({
+                        key: b._id,
+                        message: `Budget for ${b.category} deleted.`,
+                        hide: () => setBudgets((list) => list.filter((x) => x._id !== b._id)),
+                        restore: load,
+                        run: () => api.delete(`/budgets/${b._id}`, { quiet: true }),
+                        done: load,
+                      })} />
                       </td>
                     </tr>
                   );
@@ -193,7 +200,7 @@ export default function Budgets() {
           <input type="number" min="1" step="0.01" placeholder="e.g. 5000" value={form.limit}
             onChange={(e) => setForm({ ...form, limit: e.target.value })} required className={field} />
           <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
-            {editing ? "Save changes" : "Add budget"}
+            {editing ? "Save Changes" : "Add budget"}
           </button>
         </form>
       </Modal>

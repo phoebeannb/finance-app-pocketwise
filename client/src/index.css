@@ -132,3 +132,18 @@ body {
 .recharts-surface {
   outline: none !important;
 }
+
+/* Day headings inside tables (Transactions) */
+.data-table tr[data-group] td {
+  background: #f8fafc; font-size: 0.8125rem; font-weight: 600; color: #334155;
+  padding-top: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;
+}
+.data-table tbody tr[data-group]:hover td { background: #f8fafc; }
+@media (max-width: 639px) {
+  .data-table tr[data-group] { padding: 0; }
+  .data-table tr[data-group] td { display: block; padding: 0.5rem 0.875rem; text-align: left; }
+  .data-table tr[data-group] td::before { display: none; }
+}
+
+/* Pie slices can be clicked */
+.recharts-sector { cursor: pointer; }

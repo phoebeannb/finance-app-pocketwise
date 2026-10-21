@@ -16,13 +16,5 @@ export function checkPassword(password, { email = "", name = "" } = {}) {
     { label: "One lowercase letter", ok: /[a-z]/.test(password) },
     { label: "One number", ok: /\d/.test(password) },
     { label: "One special character", ok: /[^A-Za-z0-9]/.test(password) },
-    { label: "Not a common password", ok: password.length > 0 && !COMMON.has(lower) },
-    {
-      label: "Doesn't contain your name or email",
-      ok:
-        password.length > 0 &&
-        !(emailName.length >= 3 && lower.includes(emailName)) &&
-        !(cleanName.length >= 3 && lower.replace(/\s+/g, "").includes(cleanName)),
-    },
   ];
 }

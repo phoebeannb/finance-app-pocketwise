@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import TransactionModal from "./TransactionModal";
 import QuickAddSheet from "./QuickAddSheet";
 import Modal from "./Modal";
+import Shortcuts from "./Shortcuts";
 
 const OVERVIEW = { to: "/", label: "Overview", icon: LayoutDashboard, end: true };
 const ACCOUNTS = { to: "/accounts", label: "Accounts", icon: Landmark };
@@ -226,7 +227,7 @@ export default function Layout() {
           </button>
         </div>
       </nav>
-
+      <Shortcuts onAdd={() => setAddOpen(true)} onLogout={logout} />     
       <QuickAddSheet open={quickOpen} onClose={() => setQuickOpen(false)} onSaved={saved}
         onMore={() => { setQuickOpen(false); setAddOpen(true); }} />
       <TransactionModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={saved} />

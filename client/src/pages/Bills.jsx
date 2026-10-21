@@ -123,7 +123,7 @@ export default function Bills() {
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">Bills & Subscriptions</h2>
+          <h2 className="text-2xl font-semibold">Bills</h2>
         </div>
         <button onClick={openAdd}
           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
@@ -191,7 +191,14 @@ export default function Bills() {
                         <IconButton icon={SkipForward} label="Skip next due date" onClick={() => act(`/recurring/${i._id}/skip`)} />
                         <IconButton icon={i.active ? Pause : Play} label={i.active ? "Pause" : "Resume"} onClick={() => act(`/recurring/${i._id}/toggle`)} />
                         <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(i)} />
-                        <IconButton icon={Trash2} label="Delete" danger onClick={() => setToDelete(i)} />
+                        <IconButton icon={Trash2} label="Delete" danger onClick={() => undoableDelete({
+                        key: i._id,
+                        message: `"${i.name}" deleted. Transactions it already added stay in your history.`,
+                        hide: () => setItems((list) => list.filter((x) => x._id !== i._id)),
+                        restore: load,
+                        run: () => api.delete(`/recurring/${i._id}`, { quiet: true }),
+                        done: load,
+                      })} />
                       </td>
                     </tr>
                   );
@@ -261,7 +268,7 @@ export default function Bills() {
           </div>
 
           <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
-            {editing ? "Save changes" : "Add bill"}
+            {editing ? "Save Changes" : "Add bill"}
           </button>
         </form>
       </Modal>

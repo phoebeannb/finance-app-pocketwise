@@ -140,7 +140,7 @@ export default function Accounts() {
           <input name="notes" placeholder="Notes (optional)" value={form.notes} onChange={handleChange} className={field} />
 
           <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
-            {editing ? "Save changes" : "Create account"}
+            {editing ? "Save Changes" : "Create account"}
           </button>
           {editing && (
             <button type="button" onClick={() => { setFormOpen(false); setToDelete(editing); }}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { categoryLink } from "../utils/ranges";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import api from "../api/axios";
@@ -23,6 +24,7 @@ const SPENDABLE = ["Bank Account", "Other"];
 
 export default function Dashboard() {
   const [month, setMonth] = useState(monthNow());
+const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [safe, setSafe] = useState(null);
   const [accounts, setAccounts] = useState(null);
@@ -156,7 +158,7 @@ export default function Dashboard() {
                 <div className="h-72 w-full">
                   <ResponsiveContainer>
                     <PieChart>
-                      <Pie data={chartData} dataKey="value" nameKey="name" outerRadius="68%"
+                      <Pie data={chartData} dataKey="value" nameKey="name" outerRadius="68%" onClick={(slice) => navigate(categoryLink(slice.name, month))}
                         label={(e) => `${formatMoney(e.value)} (${pcts[chartData.findIndex((d) => d.name === e.name)]}%)`}>
                         {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>

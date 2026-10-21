@@ -4,7 +4,7 @@ import { useEffect } from "react";
 function labelTables() {
   document.querySelectorAll("table.data-table").forEach((table) => {
     const heads = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent.trim());
-    table.querySelectorAll("tbody tr").forEach((tr) => {
+    table.querySelectorAll("tbody tr:not([data-group])").forEach((tr) => {
       Array.from(tr.children).forEach((td, i) => {
         const label = heads[i] ?? "";
         if (td.getAttribute("data-label") !== label) td.setAttribute("data-label", label);

@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../utils/toast";
 import Modal from "./Modal";
+import PasswordInput from "./PasswordInput";
 import { Block, Row, inputClass, secondaryBtn } from "./SettingsUI";
 
 const EXPORTS = [
@@ -80,13 +81,16 @@ export default function DataPrivacy() {
           </p>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Your password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClass} />
+            <PasswordInput value={password} onChange={setPassword} required />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Type DELETE to confirm</label>
             <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className={inputClass} />
           </div>
-          <div className="flex gap-2 pt-1">
+          {(!password || confirmText !== "DELETE") && (
+            <p className="text-sm text-slate-600">To turn on the delete button, enter your password and type DELETE.</p>
+              )}
+            <div className="flex gap-2 pt-1">
             <button type="button" onClick={() => setDelOpen(false)} className={`flex-1 ${secondaryBtn}`}>Cancel</button>
             <button type="submit" disabled={deleting || !password || confirmText !== "DELETE"}
               className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">

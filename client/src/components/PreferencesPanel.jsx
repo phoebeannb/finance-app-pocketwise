@@ -34,12 +34,12 @@ export default function PreferencesPanel() {
   return (
     <form onSubmit={submit}>
       <Block title="Display">
-        <Row label="Currency" hint="Changes the symbol only. Your amounts are not converted.">
+        <Row label="Currency" hint="">
           <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className={inputClass}>
             {CURRENCIES.map(([code, name]) => <option key={code} value={code}>{code} · {name}</option>)}
           </select>
         </Row>
-        <Row label="Date format">
+        <Row label="Date Format">
           <select value={form.dateFormat} onChange={(e) => setForm({ ...form, dateFormat: e.target.value })} className={inputClass}>
             {DATE_FORMATS.map(([key, example]) => <option key={key} value={key}>{example}</option>)}
           </select>
@@ -53,7 +53,7 @@ export default function PreferencesPanel() {
 
       <div className="mt-8" />
       <Block title="Transactions">
-        <Row label="Default account" hint="New transactions and inbox items start with this account selected.">
+        <Row label="Default Account">
           <select value={form.defaultAccount || ""} onChange={(e) => setForm({ ...form, defaultAccount: e.target.value || null })} className={inputClass}>
             <option value="">None</option>
             {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
@@ -63,7 +63,7 @@ export default function PreferencesPanel() {
 
       <Actions>
         <button type="button" onClick={() => setForm(prefs)} disabled={!dirty || saving} className={secondaryBtn}>Discard</button>
-        <button type="submit" disabled={!dirty || saving} className={primaryBtn}>{saving ? "Saving..." : "Save changes"}</button>
+        <button type="submit" disabled={!dirty || saving} className={primaryBtn}>{saving ? "Saving..." : "Save Changes"}</button>
       </Actions>
     </form>
   );

@@ -14,16 +14,19 @@ export const dismiss = (id) => {
   emit();
 };
 
-function push(type, message, ms) {
+function push(type, message, ms, action) {
   if (!message) return;
-  items = items.filter((t) => !(t.type === type && t.message === message)); // same message again: show it fresh
+  // The same plain message again: show it fresh. Undo messages are always kept separate.
+  if (!action) items = items.filter((t) => !(t.type === type && t.message === message && !t.action));
   const id = nextId++;
-  items = [...items.slice(-3), { id, type, message }];
+  items = [...items.slice(-3), { id, type, message, action }];
   emit();
   setTimeout(() => dismiss(id), ms);
+  return id;
 }
 
 export const toast = {
   success: (message) => push("success", message, 4000),
   error: (message) => push("error", message, 8000),
+  undo: (message, onUndo, ms = 5000) => push("success", message, ms, { label: "Undo", onClick: onUndo }),
 };

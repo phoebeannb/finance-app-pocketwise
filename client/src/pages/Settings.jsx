@@ -5,9 +5,9 @@ import CategoriesManager from "../components/CategoriesManager";
 import DataPrivacy from "../components/DataPrivacy";
 
 const SECTIONS = [
-  ["profile", "Profile", "Your name, email and password.", ProfileInfo],
-  ["preferences", "Preferences", "How amounts and dates are shown, and your default account.", PreferencesPanel],
-  ["categories", "Categories", "The categories you've created.", CategoriesManager],
+  ["profile", "Profile", "", ProfileInfo],
+  ["preferences", "Preferences", "", PreferencesPanel],
+  ["categories", "Categories", "", CategoriesManager],
   ["data", "Data & Privacy", "Download your data or delete your account.", DataPrivacy],
 ];
 

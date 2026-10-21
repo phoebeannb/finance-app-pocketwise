@@ -97,7 +97,7 @@ export default function CategoriesManager() {
         {!cats && !error && <p className="p-6 text-center text-slate-500">Loading...</p>}
       </TableCard>
 
-      <h3 className="mb-2 mt-8 font-semibold">Built-in categories</h3>
+      <h3 className="mb-2 mt-8 font-semibold">Built-in Categories</h3>
       <div className="flex flex-wrap gap-2">
         {builtIn.map((b) => (
           <span key={b} className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-sm text-slate-600">{b}</span>

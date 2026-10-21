@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import { undoableDelete } from "../utils/undoDelete";
 import { formatMoney } from "../utils/format";
 import { monthLabel } from "../utils/months";
+import { Link, useNavigate } from "react-router-dom";
+import { categoryLink, periodLink } from "../utils/ranges";
 import TrendChart from "../components/TrendChart";
 import Skeleton from "../components/Skeleton";
 import { TableCard, ErrorBar } from "../components/ui";
@@ -19,8 +22,8 @@ export default function Reports() {
   const [metric, setMetric] = useState("expenses");
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const [showAll, setShowAll] = useState(false);
-
+const [showAll, setShowAll] = useState(false);
+const navigate = useNavigate();
   const load = () => {
     setError("");
     api.get("/reports", { params: { period } })
@@ -66,7 +69,7 @@ export default function Reports() {
           <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
             <h3 className="text-lg font-semibold">{METRICS[metric].name} over time</h3>
             <p className="mb-2 text-xs text-slate-500">{RANGE[period]} </p>
-            <TrendChart kind="bar" data={data.series}
+            <TrendChart kind="bar" data={data.series} onSelect={(p) => navigate(periodLink(p.key, metric))}
               series={[{ key: metric, name: METRICS[metric].name, color: METRICS[metric].color }]} />
           </div>
 
@@ -79,7 +82,7 @@ export default function Reports() {
                   <tbody>
                     {data.categories.map((c) => (
                       <tr key={c.category}>
-                        <td className="font-medium">{c.category}</td>
+                        <td className="font-medium"><Link to={categoryLink(c.category)} className="text-indigo-700 hover:underline">{c.category}</Link></td>
                         <td className="num">{formatMoney(c.total)}</td>
                         <td className="num text-slate-500">{c.percent}%</td>
                       </tr>

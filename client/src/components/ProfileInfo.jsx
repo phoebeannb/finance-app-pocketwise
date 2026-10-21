@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import PasswordStrength from "./PasswordStrength";
+import PasswordInput from "./PasswordInput";
 import { checkPassword } from "../utils/passwordPolicy";
 import { Block, Row, Actions, inputClass, primaryBtn } from "./SettingsUI";
 
@@ -42,6 +43,9 @@ export default function ProfileInfo() {
   const rulesOk = checkPassword(pw.next, { email: profile.email, name: profile.name }).every((r) => r.ok);
   const mismatch = pw.confirm && pw.next !== pw.confirm;
   const canSavePw = pw.current && rulesOk && pw.next === pw.confirm;
+  const pwHint = !pw.current ? ""
+    : !rulesOk ? "Your new password doesn't meet every rule in the checklist yet."
+    : pw.next !== pw.confirm ? "The two new passwords need to match." : "";
 
   const savePassword = async (e) => {
     e.preventDefault();
@@ -57,36 +61,38 @@ export default function ProfileInfo() {
   return (
     <div>
       <form onSubmit={saveProfile}>
-        <Block title="Account">
+        <Block title="Account" description="">
           <Row label="Name">
             <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} required className={inputClass} />
           </Row>
-          <Row label="Email Address">
+          <Row label="Email address">
             <input type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} required className={inputClass} />
           </Row>
         </Block>
         <Actions>
-          <button type="submit" disabled={!profileDirty || savingProfile} className={primaryBtn}>{savingProfile ? "Saving..." : "Save changes"}</button>
+          <button type="submit" disabled={!profileDirty || savingProfile} className={primaryBtn}>{savingProfile ? "Saving..." : "Save Changes"}</button>
         </Actions>
+        {}
       </form>
 
       <form onSubmit={savePassword} className="mt-10">
-        <Block title="Password" description="Choose a strong password you don't use anywhere else.">
+        <Block title="Password" description="">
           <Row label="Current password">
-            <input type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" className={inputClass} />
+            <PasswordInput value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} autoComplete="current-password" className={inputClass} />
           </Row>
           <Row label="New password">
-            <input type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" className={inputClass} />
+            <PasswordInput value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" className={inputClass} />
             <div className="mt-3"><PasswordStrength password={pw.next} email={profile.email} name={profile.name} /></div>
           </Row>
           <Row label="Confirm new password">
-            <input type="password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} autoComplete="new-password" className={inputClass} />
-            {mismatch && <p className="mt-1 text-sm text-red-600">The two passwords don't match yet.</p>}
+            <PasswordInput value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} autoComplete="new-password" className={inputClass} />
+            {mismatch && <p className="mt-1 text-sm text-red-700">The two passwords don't match yet.</p>}
           </Row>
         </Block>
         <Actions>
           <button type="submit" disabled={!canSavePw || savingPw} className={primaryBtn}>{savingPw ? "Updating..." : "Update password"}</button>
         </Actions>
+        {!canSavePw && pwHint && <p className="mt-2 text-right text-sm text-slate-600">{pwHint}</p>}
       </form>
     </div>
   );
