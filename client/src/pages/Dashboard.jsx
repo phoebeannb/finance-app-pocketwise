@@ -233,7 +233,7 @@ export default function Dashboard() {
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2"><SafeCard safe={safe} /></div>
             <div className={`${card} p-5`}>
-              <div className="text-sm text-slate-600">Available balance</div>
+              <div className="text-sm text-slate-600">Available Balance</div>
               <div className={`mt-1 text-3xl font-semibold ${available < 0 ? "text-red-700" : "text-slate-900"}`}>
                 {spendable.length ? formatMoney(available) : "—"}
               </div>
@@ -277,7 +277,7 @@ export default function Dashboard() {
             <section className={`${card} p-5`} aria-labelledby="due-title">
               <div className="mb-3 flex items-baseline justify-between gap-3">
                 <h3 id="due-title" className="text-lg font-semibold">Bills due this week</h3>
-                <Link to="/bills" className="text-sm font-medium text-indigo-700 hover:underline">Manage bills</Link>
+                <Link to="/bills" className="text-sm font-medium text-indigo-700 hover:underline">Manage Bills</Link>
               </div>
               {ins?.billsDue?.items.length ? (
                 <>

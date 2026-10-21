@@ -1,19 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", "Segoe UI", system-ui, sans-serif;
 
-  --color-indigo-50: #eff5fc;
-  --color-indigo-100: #dbe8f8;
-  --color-indigo-200: #bcd3f0;
-  --color-indigo-300: #8fb4e4;
-  --color-indigo-400: #5d90d3;
-  --color-indigo-500: #3a73bd;
-  --color-indigo-600: #255ca3;
-  --color-indigo-700: #1d4a85;
-  --color-indigo-800: #193d6b;
-  --color-indigo-900: #173357;
-  --color-indigo-950: #0e2038;
+  /* Real indigo (replaces the navy-blue override) */
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+  --color-indigo-950: #1e1b4b;
 
   /* Slightly darker greys, greens, ambers and reds so text passes the 4.5:1 contrast rule */
   --color-slate-400: #64748b;
@@ -21,6 +23,11 @@
   --color-green-600: #15803d;
   --color-amber-600: #b45309;
   --color-red-600: #c81e1e;
+
+  /* Colors by meaning: use text-income / text-expense on amounts.
+     Keep red (text-red-600) only for over budget and overdue. */
+  --color-income: #15803d;
+  --color-expense: #1b1f2a;
 
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
@@ -37,6 +44,7 @@
 html, body, #root {
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh; /* correct height on phones with a moving address bar */
   margin: 0;
   padding: 0;
   max-width: none;
@@ -46,8 +54,9 @@ html, body, #root {
 
 body {
   display: block;
-  background: #f4f5f7;
-  color: #111827;
+  background: #f7f8fa;
+  color: #1b1f2a;
+  font-variant-numeric: tabular-nums; /* digits line up in columns */
   -webkit-font-smoothing: antialiased;
 }
 
@@ -57,8 +66,12 @@ body {
 }
 
 @layer base {
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
   /* A visible outline on everything you can reach with the keyboard */
-  :where(a, button, summary, [role="radio"], [role="tab"], [tabindex]):focus-visible {
+  :where(a, button, summary, input, select, textarea, [role="radio"], [role="tab"], [tabindex]):focus-visible {
     outline: 2px solid var(--color-indigo-500);
     outline-offset: 2px;
   }
@@ -86,26 +99,47 @@ body {
   }
 }
 
-/* Any table that hasn't been redesigned yet shows each row as a soft card.
-   (The column headings move above each value. Enhancer.jsx writes them into data-label.) */
-.data-table { display: block; width: 100%; font-size: 0.875rem; }
-.data-table thead {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+/* ---------- Tables ---------- */
+.data-table { width: 100%; font-size: 0.875rem; }
+
+/* Phones and small tablets: each row becomes a soft card.
+   (Enhancer.jsx writes the column headings into data-label.) */
+@media (max-width: 767px) {
+  .data-table { display: block; }
+  .data-table thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .data-table tbody { display: grid; gap: 0.625rem; }
+  .data-table tr {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.625rem 1.25rem; align-items: start;
+    padding: 0.875rem 1rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+  }
+  .data-table td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; }
+  .data-table td::before {
+    content: attr(data-label); display: block; margin-bottom: 0.125rem;
+    font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #556070;
+  }
+  .data-table td[data-label=""]::before { display: none; }
+  .data-table td.actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.25rem; align-self: end; }
 }
-.data-table tbody { display: grid; gap: 0.625rem; }
-.data-table tr {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.625rem 1.25rem; align-items: start;
-  padding: 0.875rem 1rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+
+/* Tablet and desktop: a normal table with one header row */
+@media (min-width: 768px) {
+  .data-table {
+    border-collapse: separate; border-spacing: 0;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; overflow: hidden;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+  }
+  .data-table thead th {
+    padding: 0.75rem 1rem; text-align: left; background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+    font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #556070;
+  }
+  .data-table tbody td { padding: 0.875rem 1rem; vertical-align: middle; border-bottom: 1px solid #eef0f3; }
+  .data-table tbody tr:last-child td { border-bottom: 0; }
+  .data-table tbody tr:hover { background: #fafbfc; }
+  .data-table td.actions { white-space: nowrap; text-align: right; }
 }
-.data-table tr:hover { border-color: #cbd5e1; }
-.data-table td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; font-variant-numeric: tabular-nums; }
-.data-table td::before {
-  content: attr(data-label); display: block; margin-bottom: 0.125rem;
-  font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #556070;
-}
-.data-table td[data-label=""]::before { display: none; }
-.data-table td.actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.25rem; align-self: end; }
 
 @keyframes celebrate { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
 .celebrate { animation: celebrate 0.8s ease-out 2; }
