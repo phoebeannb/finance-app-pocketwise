@@ -1,4 +1,8 @@
+import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
+
+// The look of a card, shared everywhere
+export const card = "rounded-xl border border-slate-200 bg-white shadow-sm";
 
 export function IconButton({ icon: Icon, label, onClick, danger = false, disabled = false }) {
   return (
@@ -12,16 +16,33 @@ export function IconButton({ icon: Icon, label, onClick, danger = false, disable
 
 export function Stat({ label, value, hint, color = "text-slate-900" }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="text-sm text-slate-500">{label}</div>
+    <div className={`${card} p-4`}>
+      <div className="text-sm text-slate-600">{label}</div>
       <div className={`mt-1 truncate text-2xl font-semibold ${color}`}>{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-slate-500">{hint}</div>}
+      {hint && <div className="mt-0.5 text-xs text-slate-600">{hint}</div>}
     </div>
   );
 }
 
+// Cards stand on their own now, so this is just a spacing wrapper
 export function TableCard({ children }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">{children}</div>;
+  return <div className="space-y-2">{children}</div>;
+}
+
+// A bar that slides open when it first appears
+export function Bar({ pct, color = "bg-indigo-600", height = "h-2", label }) {
+  const target = Math.min(100, Math.max(pct > 0 ? 2 : 0, pct));
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setW(target), 60);
+    return () => clearTimeout(t);
+  }, [target]);
+  return (
+    <div className={`${height} w-full overflow-hidden rounded-full bg-slate-100`} role="progressbar"
+      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, pct))} aria-label={label}>
+      <div className={`h-full rounded-full transition-[width] duration-700 ease-out ${color}`} style={{ width: `${w}%` }} />
+    </div>
+  );
 }
 
 export function Progress({ pct, color = "bg-indigo-600" }) {
@@ -30,6 +51,22 @@ export function Progress({ pct, color = "bg-indigo-600" }) {
     <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-100" role="progressbar"
       aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, pct))}>
       <div className={`h-full transition-[width] duration-500 ${color}`} style={{ width: `${width}%` }} />
+    </div>
+  );
+}
+
+// A friendly "nothing here yet" that points to the next step
+export function Empty({ icon: Icon, title, children, action }) {
+  return (
+    <div className={`${card} flex flex-col items-center px-6 py-10 text-center`}>
+      {Icon && (
+        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+          <Icon size={24} aria-hidden="true" />
+        </span>
+      )}
+      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+      {children && <p className="mt-1 max-w-sm text-sm text-slate-600">{children}</p>}
+      {action && <div className="mt-4 flex flex-wrap justify-center gap-2">{action}</div>}
     </div>
   );
 }

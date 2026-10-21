@@ -22,16 +22,16 @@
   --color-amber-600: #b45309;
   --color-red-600: #c81e1e;
 
-  --radius-lg: 0.375rem;
-  --radius-xl: 0.5rem;
-  --radius-2xl: 0.5rem;
-  --radius-3xl: 0.625rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.25rem;
 
-  --shadow-sm: 0 1px 1px 0 rgb(0 0 0 / 0.04);
-  --shadow-md: 0 1px 2px 0 rgb(0 0 0 / 0.06);
-  --shadow-lg: 0 1px 2px 0 rgb(0 0 0 / 0.06);
-  --shadow-xl: 0 1px 2px 0 rgb(0 0 0 / 0.06);
-  --shadow-2xl: 0 8px 24px 0 rgb(0 0 0 / 0.18);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+  --shadow-md: 0 2px 6px 0 rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 4px 12px 0 rgb(15 23 42 / 0.1);
+  --shadow-xl: 0 8px 20px 0 rgb(15 23 42 / 0.12);
+  --shadow-2xl: 0 12px 32px 0 rgb(15 23 42 / 0.2);
 }
 
 html, body, #root {
@@ -86,64 +86,34 @@ body {
   }
 }
 
-/* Shared table style */
-.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-.data-table th {
-  padding: 0.625rem 0.875rem;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #556070;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-  white-space: nowrap;
+/* Any table that hasn't been redesigned yet shows each row as a soft card.
+   (The column headings move above each value. Enhancer.jsx writes them into data-label.) */
+.data-table { display: block; width: 100%; font-size: 0.875rem; }
+.data-table thead {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
-.data-table td { padding: 0.625rem 0.875rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-.data-table tbody tr:last-child td { border-bottom: 0; }
-.data-table tbody tr:hover td { background: #fafbfc; }
-.data-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.data-table .actions { text-align: right; white-space: nowrap; width: 1%; }
-
-/* On phones every table row becomes a small card. The column headings move beside each value
-   (Enhancer.jsx writes them into data-label) and stay available to screen readers. */
-@media (max-width: 639px) {
-  .data-table thead {
-    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
-  }
-  .data-table, .data-table tbody, .data-table tr { display: block; width: 100%; }
-  .data-table tr { padding: 0.5rem 0.875rem; border-bottom: 1px solid #e2e8f0; }
-  .data-table tbody tr:last-child { border-bottom: 0; }
-  .data-table td {
-    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-    padding: 0.3rem 0; border: 0; text-align: right;
-    max-width: none; white-space: normal; overflow: visible; text-overflow: clip;
-  }
-  .data-table td::before {
-    content: attr(data-label); flex: none; font-size: 0.75rem; font-weight: 600; color: #556070; text-align: left;
-  }
-  .data-table td[data-label=""]::before { display: none; }
-  .data-table td.actions { width: auto; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.5rem; }
-  .data-table tbody tr:hover td { background: transparent; }
+.data-table tbody { display: grid; gap: 0.625rem; }
+.data-table tr {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.625rem 1.25rem; align-items: start;
+  padding: 0.875rem 1rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
 }
+.data-table tr:hover { border-color: #cbd5e1; }
+.data-table td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; font-variant-numeric: tabular-nums; }
+.data-table td::before {
+  content: attr(data-label); display: block; margin-bottom: 0.125rem;
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #556070;
+}
+.data-table td[data-label=""]::before { display: none; }
+.data-table td.actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.25rem; align-self: end; }
 
-/* No black box around charts */
+@keyframes celebrate { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+.celebrate { animation: celebrate 0.8s ease-out 2; }
+
+/* No black box around charts, and pie slices can be clicked */
 .recharts-wrapper,
 .recharts-wrapper *,
 .recharts-surface {
   outline: none !important;
 }
-
-/* Day headings inside tables (Transactions) */
-.data-table tr[data-group] td {
-  background: #f8fafc; font-size: 0.8125rem; font-weight: 600; color: #334155;
-  padding-top: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0;
-}
-.data-table tbody tr[data-group]:hover td { background: #f8fafc; }
-@media (max-width: 639px) {
-  .data-table tr[data-group] { padding: 0; }
-  .data-table tr[data-group] td { display: block; padding: 0.5rem 0.875rem; text-align: left; }
-  .data-table tr[data-group] td::before { display: none; }
-}
-
-/* Pie slices can be clicked */
 .recharts-sector { cursor: pointer; }

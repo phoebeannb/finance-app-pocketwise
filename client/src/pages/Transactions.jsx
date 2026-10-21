@@ -1,11 +1,12 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Plus, Pencil, Trash2, Search, SlidersHorizontal, Upload, Download, X, ChevronLeft, ChevronRight, Inbox, Paperclip,
+  Plus, Pencil, Trash2, Search, SlidersHorizontal, Upload, Download, X, ChevronLeft, ChevronRight, Paperclip, ReceiptText,
 } from "lucide-react";
 import api from "../api/axios";
+import { useQuickAdd } from "../context/QuickAddContext";
 import { formatMoney } from "../utils/format";
-import { fmtDate, fmtTime, relativeDay, todayKey } from "../utils/datetime";
+import { fmtDate, fmtTime, relativeDay } from "../utils/datetime";
 import { isSavings, txTitle } from "../utils/txDisplay";
 import { txAccount, txNote, hasNote, txSign, txColor } from "../utils/txTable";
 import { moodOf } from "../utils/moods";
@@ -14,17 +15,16 @@ import { toast } from "../utils/toast";
 import useCategories from "../hooks/useCategories";
 import TransactionModal from "../components/TransactionModal";
 import ImportModal from "../components/ImportModal";
-import InboxList from "../components/InboxList";
-import CategoryLabel from "../components/CategoryLabel";
+import UnderlineTabs from "../components/UnderlineTabs";
+import { CategoryBadge } from "../components/CategoryLabel";
 import Modal from "../components/Modal";
 import Skeleton from "../components/Skeleton";
-import { IconButton, TableCard, ErrorBar } from "../components/ui";
+import { IconButton, Empty, ErrorBar, card } from "../components/ui";
 
 const PAGE_SIZE = 20;
 const TYPES = ["income", "expense", "transfer"];
 const TYPE_TABS = [["all", "All"], ["income", "Income"], ["expense", "Expense"], ["transfer", "Transfer"]];
 const emptyFilters = { q: "", type: "all", category: "", account: "", from: "", to: "", min: "", max: "", tag: "" };
-const DISMISS_KEY = "pw_inbox_dismissed";
 
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
@@ -38,10 +38,6 @@ function useDebounced(value, ms = 300) {
     return () => clearTimeout(t);
   }, [value, ms]);
   return v;
-}
-
-function readDismissed() {
-  try { return JSON.parse(localStorage.getItem(DISMISS_KEY)); } catch { return null; }
 }
 
 // Filters can arrive in the address (clicking a chart, a tag, or the command palette)
@@ -63,6 +59,7 @@ function readUrl(params) {
 
 export default function Transactions() {
   const [params] = useSearchParams();
+  const { open: openQuickAdd } = useQuickAdd();
   const initial = useMemo(() => readUrl(params), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [filters, setFilters] = useState(initial.filters);
   const [unsorted, setUnsorted] = useState(initial.unsorted);
@@ -74,11 +71,6 @@ export default function Transactions() {
   const [selected, setSelected] = useState(new Set());
   const [exporting, setExporting] = useState(false);
   const [receipt, setReceipt] = useState(null);
-
-  const [inbox, setInbox] = useState(null);
-  const [inboxOpen, setInboxOpen] = useState(false);
-  const [inboxTick, setInboxTick] = useState(0);
-  const [dismissed, setDismissed] = useState(readDismissed);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -126,25 +118,12 @@ export default function Transactions() {
       .catch((err) => setError(err.response ? "Could not load transactions." : "Can't reach the server. Make sure it's running, then try again.")),
     [queryParams]
   );
-  const loadInbox = useCallback(
-    () => api.get("/transactions/inbox", { params: { limit: 1 } })
-      .then(({ data }) => setInbox({ count: data.count, yesterday: data.yesterday }))
-      .catch(() => {}),
-    []
-  );
   useEffect(() => { load(); setSelected(new Set()); }, [load]);
-  useEffect(() => { loadInbox(); }, [loadInbox]);
   useEffect(() => { api.get("/accounts").then(({ data }) => setAccounts(data)).catch(() => {}); }, []);
-
-  const reloadAll = () => { load(); loadInbox(); setInboxTick((k) => k + 1); };
 
   useEffect(() => {
     if (data && data.pages > 0 && page > data.pages) setPage(data.pages);
   }, [data, page]);
-
-  useEffect(() => {
-    if (inboxOpen && inbox && inbox.count === 0) setInboxOpen(false);
-  }, [inboxOpen, inbox]);
 
   const groups = useMemo(() => {
     const m = new Map();
@@ -161,11 +140,11 @@ export default function Transactions() {
   const start = data ? (data.page - 1) * data.pageSize + 1 : 0;
   const end = data ? start + data.items.length - 1 : 0;
 
-  // What is the table showing right now? Each chip can be removed.
+  // What is the list showing right now? Each chip can be removed.
   const accountName = accounts.find((a) => a._id === filters.account)?.name;
   const day = (ymd) => fmtDate(`${ymd}T00:00:00.000Z`);
   const chips = [
-    unsorted && { key: "inbox", label: "Inbox (no category)", clear: () => { setUnsorted(false); setPage(1); } },
+    unsorted && { key: "inbox", label: "No category yet", clear: () => { setUnsorted(false); setPage(1); } },
     filters.type !== "all" && { key: "type", label: cap(filters.type), clear: () => update({ type: "all" }) },
     filters.category && { key: "cat", label: filters.category, clear: () => update({ category: "" }) },
     (filters.from || filters.to) && {
@@ -177,22 +156,7 @@ export default function Transactions() {
     filters.q && { key: "q", label: `“${filters.q}”`, clear: () => update({ q: "" }) },
   ].filter(Boolean);
 
-  // The inbox nudge: gentle, dismissible, and it returns tomorrow or when more items pile up
-  const bannerVisible =
-    inbox && inbox.count > 0 && !unsorted &&
-    !(dismissed && dismissed.day === todayKey() && inbox.count <= dismissed.count);
-  const dismissBanner = () => {
-    const v = { day: todayKey(), count: inbox.count };
-    localStorage.setItem(DISMISS_KEY, JSON.stringify(v));
-    setDismissed(v);
-  };
-  const bannerText = inbox
-    ? inbox.yesterday > 0
-      ? `You have ${plural(inbox.yesterday, "uncategorized transaction")} from yesterday.${inbox.count > inbox.yesterday ? ` ${inbox.count - inbox.yesterday} older ${inbox.count - inbox.yesterday === 1 ? "one is" : "ones are"} waiting too.` : ""}`
-      : `You have ${plural(inbox.count, "uncategorized transaction")} waiting in your inbox.`
-    : "";
-
-  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const reload = () => load();
   const openEdit = (t) => { setEditing(t); setModalOpen(true); };
 
   // Deleting: it disappears now, and is really deleted after 5 seconds unless you press Undo
@@ -205,7 +169,7 @@ export default function Transactions() {
       hide: () => setData((d) => d && { ...d, items: d.items.filter((x) => x._id !== t._id), total: d.total - 1 }),
       restore: load,
       run: () => api.delete(`/transactions/${t._id}`, { quiet: true }),
-      done: reloadAll,
+      done: reload,
     });
 
   const removeSelected = () => {
@@ -220,7 +184,7 @@ export default function Transactions() {
       },
       restore: load,
       run: () => api.post("/transactions/bulk-delete", { ids }, { quiet: true }),
-      done: reloadAll,
+      done: reload,
     });
   };
 
@@ -265,37 +229,22 @@ export default function Transactions() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-semibold">Transactions</h2>
         <div className="flex flex-wrap gap-2">
-       <button onClick={exportCsv} disabled={exporting}
+          <button onClick={exportCsv} disabled={exporting}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
-          <Download size={16} aria-hidden="true" /> {exporting ? "Preparing..." : "Export CSV"}
+            <Download size={16} aria-hidden="true" /> {exporting ? "Preparing..." : "Export CSV"}
           </button>
           <button onClick={() => setImportOpen(true)}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
             <Upload size={16} aria-hidden="true" /> Import CSV
           </button>
-          <button onClick={openAdd}
+          <button onClick={openQuickAdd}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            <Plus size={16} aria-hidden="true" /> Add Transaction
+            <Plus size={16} aria-hidden="true" /> Add transaction
           </button>
         </div>
       </div>
 
       {error && <ErrorBar message={error} onRetry={load} />}
-
-      {bannerVisible && (
-        <div role="status" className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <span aria-hidden="true">💡</span>
-          <p className="flex-1">
-            {bannerText}{" "}
-            <button onClick={() => setInboxOpen(true)} className="font-medium underline hover:text-amber-950">
-              Click here to quickly sort them.
-            </button>
-          </p>
-          <button onClick={dismissBanner} aria-label="Dismiss this notice" className="shrink-0 rounded p-0.5 text-amber-800 hover:bg-amber-100">
-            <X size={16} aria-hidden="true" />
-          </button>
-        </div>
-      )}
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="relative min-w-60 flex-1">
@@ -309,26 +258,18 @@ export default function Transactions() {
             </button>
           )}
         </div>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" role="group" aria-label="Type">
-          {TYPE_TABS.map(([value, label]) => (
-            <button key={value} onClick={() => update({ type: value })} aria-pressed={filters.type === value}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${filters.type === value ? "bg-indigo-600 text-white" : "text-slate-700 hover:bg-slate-100"}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <button onClick={() => { setUnsorted((u) => !u); setPage(1); }} aria-pressed={unsorted}
-          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${unsorted ? "border-amber-500 bg-amber-50 text-amber-900" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
-          <Inbox size={16} aria-hidden="true" /> Inbox {inbox?.count > 0 && `(${inbox.count})`}
-        </button>
         <button onClick={() => setShowFilters((s) => !s)} aria-expanded={showFilters}
           className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${showFilters || activeCount ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
           <SlidersHorizontal size={16} aria-hidden="true" /> Filters {activeCount > 0 && `(${activeCount})`}
         </button>
       </div>
 
+      <div className="mb-4">
+        <UnderlineTabs label="Type" value={filters.type} onChange={(type) => update({ type })} options={TYPE_TABS} />
+      </div>
+
       {showFilters && (
-        <div className="mb-4 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className={`${card} mb-4 grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3`}>
           <div>
             <label htmlFor="f-cat" className="mb-1 block text-xs font-medium text-slate-600">Category</label>
             <select id="f-cat" value={filters.category} onChange={(e) => update({ category: e.target.value })} className={field}>
@@ -383,12 +324,15 @@ export default function Transactions() {
         </div>
       )}
 
-      {data && (
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-          <span>{data.total === 0 ? "No results" : `Showing ${start}–${end} of ${data.total}`}</span>
+      {data && data.total > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={allOnPage} onChange={toggleAll} className="h-4 w-4 accent-indigo-600" />
+            Select all on this page
+          </label>
           <span>
-            Income <span className="font-semibold text-green-600">{formatMoney(data.totals.income)}</span>
-            {" · "}Expenses <span className="font-semibold text-red-600">{formatMoney(data.totals.expenses)}</span>
+            Showing {start}–{end} of {data.total} · Income <span className="font-semibold text-green-700">{formatMoney(data.totals.income)}</span>
+            {" · "}Expenses <span className="font-semibold text-red-700">{formatMoney(data.totals.expenses)}</span>
           </span>
         </div>
       )}
@@ -402,118 +346,105 @@ export default function Transactions() {
         </div>
       )}
 
-      {!data && !error && <div className="space-y-2">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-10" />)}</div>}
+      {!data && !error && <div className="space-y-3">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16" />)}</div>}
 
-      {data && (
-        <TableCard>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="w-10">
-                  <input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all transactions on this page" className="h-4 w-4 accent-indigo-600" />
-                </th>
-                <th>Time</th><th>Category</th><th>Description</th><th>Account</th>
-                <th className="text-center" title="How you were feeling">Mood</th>
-                <th className="num">Amount</th><th className="actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map(([ymd, rows]) => {
-                const rel = relativeDay(rows[0].date);
-                const full = fmtDate(rows[0].date);
-                const totals = data.daily?.[ymd];
-                return (
-                  <Fragment key={ymd}>
-                    <tr data-group>
-                      <td colSpan={8}>
-                        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                          <span>{rel === full ? full : `${rel} · ${full}`}</span>
-                          {totals && (totals.expenses > 0 || totals.income > 0) && (
-                            <span className="font-normal text-slate-600">
-                              {totals.expenses > 0 && <>Spent <b className="text-red-700">{formatMoney(totals.expenses)}</b></>}
-                              {totals.expenses > 0 && totals.income > 0 && " · "}
-                              {totals.income > 0 && <>Earned <b className="text-green-700">{formatMoney(totals.income)}</b></>}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {rows.map((t) => {
-                      const mood = moodOf(t.mood);
-                      return (
-                        <tr key={t._id}>
-                          <td>
-                            <input type="checkbox" checked={selected.has(t._id)} onChange={() => toggle(t._id)}
-                              aria-label={`Select ${txTitle(t)} ${formatMoney(t.amount)}`} className="h-4 w-4 accent-indigo-600" />
-                          </td>
-                          <td className="whitespace-nowrap text-slate-600">{fmtTime(t.date) || "—"}</td>
-                          <td><CategoryLabel t={t} /></td>
-                          <td className="max-w-[300px]">
-                            <div className="min-w-0 text-right sm:text-left">
-                              <div className={`flex items-center gap-1.5 sm:justify-start ${hasNote(t) ? "text-slate-700" : "italic text-slate-600"}`}>
-                                <span className="truncate" title={txNote(t)}>{txNote(t)}</span>
-                                {t.hasReceipt && (
-                                  <button onClick={() => viewReceipt(t)} aria-label="View receipt photo" title="View receipt photo"
-                                    className="shrink-0 rounded p-0.5 text-slate-600 hover:bg-slate-100"><Paperclip size={14} aria-hidden="true" /></button>
-                                )}
-                              </div>
-                              {t.tags?.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-1 sm:justify-start">
-                                  {t.tags.map((tag) => (
-                                    <button key={tag} onClick={() => update({ tag })} title={`Show everything tagged #${tag}`}
-                                      className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-200">#{tag}</button>
-                                  ))}
-                                </div>
-                              )}
-                              {t.notes && <div className="mt-0.5 truncate text-xs text-slate-600" title={t.notes}>{t.notes}</div>}
-                            </div>
-                          </td>
-                          <td className="text-slate-600">{txAccount(t)}</td>
-                          <td className="text-center text-lg">
-                            {mood && <span role="img" aria-label={mood.label} title={mood.label}>{mood.emoji}</span>}
-                          </td>
-                          <td className={`num font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</td>
-                          <td className="actions">
-                            {!isSavings(t) && <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(t)} />}
-                            <IconButton icon={Trash2} label="Delete" danger onClick={() => removeOne(t)} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-          {data.items.length === 0 && (
-            <div className="p-6 text-center text-slate-600">
-              {hasAnyFilter
-                ? <>Nothing matches those filters. <button onClick={clearAll} className="font-medium text-indigo-700 hover:underline">Clear filters</button></>
-                : "No transactions yet. Add one or import a CSV."}
-            </div>
-          )}
-          {data.pages > 1 && (
-            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                className="flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1 text-sm font-medium hover:bg-slate-50 disabled:opacity-40">
-                <ChevronLeft size={16} aria-hidden="true" /> Previous
-              </button>
-              <span className="text-sm text-slate-600">Page {data.page} of {data.pages}</span>
-              <button onClick={() => setPage((p) => Math.min(data.pages, p + 1))} disabled={page >= data.pages}
-                className="flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1 text-sm font-medium hover:bg-slate-50 disabled:opacity-40">
-                Next <ChevronRight size={16} aria-hidden="true" />
-              </button>
-            </div>
-          )}
-        </TableCard>
+      {data && data.items.length === 0 && (
+        hasAnyFilter ? (
+          <Empty icon={Search} title="Nothing matches those filters"
+            action={<button onClick={clearAll} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Clear filters</button>}>
+            Try a wider date range or remove a filter.
+          </Empty>
+        ) : (
+          <Empty icon={ReceiptText} title="No transactions yet"
+            action={
+              <>
+                <button onClick={openQuickAdd} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Add your first transaction</button>
+                <button onClick={() => setImportOpen(true)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Import a CSV</button>
+              </>
+            }>
+            Log what you spend and earn. Everything shows up here, newest first.
+          </Empty>
+        )
       )}
 
-      <TransactionModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSaved={reloadAll} />
-      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onImported={reloadAll} />
+      {groups.map(([ymd, rows]) => {
+        const rel = relativeDay(rows[0].date);
+        const full = fmtDate(rows[0].date);
+        const totals = data.daily?.[ymd];
+        return (
+          <section key={ymd} className="mb-5" aria-label={rel === full ? full : `${rel}, ${full}`}>
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 px-1">
+              <h3 className="text-sm font-semibold text-slate-900">
+                {rel === full ? full : <>{rel} <span className="font-normal text-slate-600">· {full}</span></>}
+              </h3>
+              {totals && (totals.expenses > 0 || totals.income > 0) && (
+                <span className="text-sm text-slate-600">
+                  {totals.expenses > 0 && <>Spent <b className="text-red-700">{formatMoney(totals.expenses)}</b></>}
+                  {totals.expenses > 0 && totals.income > 0 && " · "}
+                  {totals.income > 0 && <>Earned <b className="text-green-700">{formatMoney(totals.income)}</b></>}
+                </span>
+              )}
+            </div>
 
-      <Modal open={inboxOpen} onClose={() => setInboxOpen(false)} title="Sort your inbox" size="max-w-5xl">
-        <InboxList limit={20} refreshKey={inboxTick} onChanged={reloadAll} />
-      </Modal>
+            <ul className={`${card} divide-y divide-slate-100 overflow-hidden`}>
+              {rows.map((t) => {
+                const mood = moodOf(t.mood);
+                const meta = [txAccount(t) !== "—" ? txAccount(t) : "", fmtTime(t.date)].filter(Boolean).join(" · ");
+                return (
+                  <li key={t._id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 hover:bg-slate-50">
+                    <input type="checkbox" checked={selected.has(t._id)} onChange={() => toggle(t._id)}
+                      aria-label={`Select ${txTitle(t)} ${formatMoney(t.amount)}`} className="h-4 w-4 shrink-0 accent-indigo-600" />
+                    <CategoryBadge t={t} />
+                    <div className="min-w-0 flex-1 basis-44">
+                      <div className="flex flex-wrap items-center gap-x-2">
+                        <span className="font-medium text-slate-900">{txTitle(t)}</span>
+                        {mood && <span role="img" aria-label={mood.label} title={mood.label}>{mood.emoji}</span>}
+                        {t.hasReceipt && (
+                          <button onClick={() => viewReceipt(t)} aria-label="View receipt photo" title="View receipt photo"
+                            className="rounded p-0.5 text-slate-600 hover:bg-slate-200"><Paperclip size={14} aria-hidden="true" /></button>
+                        )}
+                      </div>
+                      <div className={`truncate text-sm ${hasNote(t) ? "text-slate-700" : "italic text-slate-600"}`} title={txNote(t)}>{txNote(t)}</div>
+                      {meta && <div className="text-xs text-slate-600">{meta}</div>}
+                      {t.tags?.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {t.tags.map((tag) => (
+                            <button key={tag} onClick={() => update({ tag })} title={`Show everything tagged #${tag}`}
+                              className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-200">#{tag}</button>
+                          ))}
+                        </div>
+                      )}
+                      {t.notes && <div className="mt-0.5 truncate text-xs text-slate-600" title={t.notes}>{t.notes}</div>}
+                    </div>
+                    <div className={`ml-auto text-right text-lg font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</div>
+                    <div className="flex w-full justify-end gap-1 sm:w-auto">
+                      {!isSavings(t) && <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(t)} />}
+                      <IconButton icon={Trash2} label="Delete" danger onClick={() => removeOne(t)} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+
+      {data && data.pages > 1 && (
+        <div className="mt-2 flex items-center justify-between">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+            className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-40">
+            <ChevronLeft size={16} aria-hidden="true" /> Previous
+          </button>
+          <span className="text-sm text-slate-600">Page {data.page} of {data.pages}</span>
+          <button onClick={() => setPage((p) => Math.min(data.pages, p + 1))} disabled={page >= data.pages}
+            className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-40">
+            Next <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      <TransactionModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSaved={reload} />
+      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onImported={reload} />
 
       <Modal open={!!receipt} onClose={() => setReceipt(null)} title="Receipt photo" size="max-w-md">
         {receipt && (

@@ -134,6 +134,22 @@ router.get("/", async (req, res) => {
   res.json(items);
 });
 
+// Your most-used categories (last 90 days), so the Add transaction form offers them first
+router.get("/frequent", async (req, res) => {
+  try {
+    const since = addDays(startOfToday(), -90);
+    const rows = await Transaction.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(req.userId), type: { $in: ["income", "expense"] }, date: { $gte: since }, category: { $nin: ["", null] } } },
+      { $group: { _id: { t: "$type", c: "$category" }, n: { $sum: 1 } } },
+      { $sort: { n: -1 } },
+    ]);
+    const pick = (t) => rows.filter((r) => r._id.t === t).slice(0, 6).map((r) => r._id.c);
+    res.json({ expense: pick("expense"), income: pick("income") });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // The inbox: income and expenses that still have no category, each with a suggested one
 router.get("/inbox", async (req, res) => {
   try {

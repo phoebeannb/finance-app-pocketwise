@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
@@ -6,8 +6,9 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { QuickAddContext } from "../context/QuickAddContext";
 import TransactionModal from "./TransactionModal";
-import QuickAddSheet from "./QuickAddSheet";
+import QuickAdd from "./QuickAdd";
 import Modal from "./Modal";
 import Shortcuts from "./Shortcuts";
 
@@ -166,95 +167,100 @@ export default function Layout() {
   const location = useLocation();
   const [wide, setWide] = useState(false); // tablet rail: show labels or not
   const [quickOpen, setQuickOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [fullOpen, setFullOpen] = useState(false);
+  const [fullInitial, setFullInitial] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [params, setParams] = useSearchParams();
   const badges = useBadges(`${location.pathname}-${refresh}`);
 
+  const saved = useCallback(() => setRefresh((k) => k + 1), []);
+  const ctx = useMemo(() => ({ open: () => setQuickOpen(true), refresh: saved }), [saved]);
+  const openFull = (initial) => { setFullInitial(initial || null); setQuickOpen(false); setFullOpen(true); };
+
   // Opened from the installed app's shortcut (/?add=1)
   useEffect(() => {
     if (params.get("add")) {
-      setAddOpen(true);
+      setQuickOpen(true);
       setParams({}, { replace: true });
     }
   }, [params, setParams]);
 
   useEffect(() => { setMoreOpen(false); }, [location.pathname]);
 
-  const saved = () => setRefresh((k) => k + 1);
-
   return (
-    <div className="min-h-screen w-full bg-[#f4f5f7] text-slate-900 sm:flex">
-      {/* Desktop: full side menu */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-zinc-950 text-white lg:block">
-        <SideNav labels badges={badges} user={user} onLogout={logout} />
-      </aside>
+    <QuickAddContext.Provider value={ctx}>
+      <div className="min-h-screen w-full bg-[#f4f5f7] text-slate-900 sm:flex">
+        {/* Desktop: full side menu */}
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-zinc-950 text-white lg:block">
+          <SideNav labels badges={badges} user={user} onLogout={logout} />
+        </aside>
 
-      {/* Tablet: icon rail (tap the arrow to show names) */}
-      <aside className={`sticky top-0 hidden h-screen shrink-0 bg-zinc-950 text-white sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
-        <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} user={user} onLogout={logout} />
-      </aside>
+        {/* Tablet: icon rail (tap the arrow to show names) */}
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-zinc-950 text-white sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
+          <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} user={user} onLogout={logout} />
+        </aside>
 
-      <main className="min-w-0 flex-1 p-4 pb-28 sm:p-6 sm:pb-8 lg:p-8">
-        {/* Changing the key reloads the page after a save from the quick-add button */}
-        <div key={refresh}>
-          <Outlet />
-        </div>
-      </main>
+        <main className="min-w-0 flex-1 p-4 pb-28 sm:p-6 sm:pb-8 lg:p-8">
+          {/* Changing the key reloads the page you're on, so new data shows up after saving */}
+          <div key={refresh}>
+            <Outlet />
+          </div>
+        </main>
 
-      {/* Phone: bottom tab bar */}
-      <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white sm:hidden">
-        <div className="mx-auto flex max-w-md items-end justify-around px-2">
-          <TabLink item={OVERVIEW} badges={badges} />
-          <TabLink item={TRANSACTIONS} badges={badges} />
-          <div className="flex flex-1 justify-center">
-            <button type="button" onClick={() => setQuickOpen(true)} aria-label="Quick add"
-              className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-md ring-4 ring-white hover:bg-indigo-700">
-              <Plus size={28} aria-hidden="true" />
+        {/* Phone: bottom tab bar */}
+        <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white sm:hidden">
+          <div className="mx-auto flex max-w-md items-end justify-around px-2">
+            <TabLink item={OVERVIEW} badges={badges} />
+            <TabLink item={TRANSACTIONS} badges={badges} />
+            <div className="flex flex-1 justify-center">
+              <button type="button" onClick={() => setQuickOpen(true)} aria-label="Add transaction"
+                className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-md ring-4 ring-white hover:bg-indigo-700">
+                <Plus size={28} aria-hidden="true" />
+              </button>
+            </div>
+            <TabLink item={BUDGETS} badges={badges} />
+            <button type="button" onClick={() => setMoreOpen(true)}
+              className="relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-slate-600">
+              <MoreHorizontal size={22} aria-hidden="true" />
+              More
+              {badges.bills > 0 && (
+                <span className="absolute right-[22%] top-2 h-2.5 w-2.5 rounded-full bg-amber-600">
+                  <span className="sr-only">{badgeText("bills", badges.bills)}</span>
+                </span>
+              )}
             </button>
           </div>
-          <TabLink item={BUDGETS} badges={badges} />
-          <button type="button" onClick={() => setMoreOpen(true)}
-            className="relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-slate-600">
-            <MoreHorizontal size={22} aria-hidden="true" />
-            More
-            {badges.bills > 0 && (
-              <span className="absolute right-[22%] top-2 h-2.5 w-2.5 rounded-full bg-amber-600">
-                <span className="sr-only">{badgeText("bills", badges.bills)}</span>
-              </span>
-            )}
-          </button>
-        </div>
-      </nav>
-      <Shortcuts onAdd={() => setAddOpen(true)} onLogout={logout} />     
-      <QuickAddSheet open={quickOpen} onClose={() => setQuickOpen(false)} onSaved={saved}
-        onMore={() => { setQuickOpen(false); setAddOpen(true); }} />
-      <TransactionModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={saved} />
+        </nav>
 
-      <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
-        <ul className="divide-y divide-slate-100">
-          {MORE.map((l) => (
-            <li key={l.to}>
-              <NavLink to={l.to} onClick={() => setMoreOpen(false)}
-                className="flex min-h-12 items-center gap-3 py-2 text-base font-medium text-slate-800">
-                <l.icon size={20} className="text-slate-500" aria-hidden="true" />
-                <span className="flex-1">{l.label}</span>
-                {l.badge && badges[l.badge] > 0 && (
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold text-white ${badgeColor(l.badge)}`}>
-                    {badges[l.badge]}<span className="sr-only"> {badgeText(l.badge, badges[l.badge])}</span>
-                  </span>
-                )}
-              </NavLink>
+        <Shortcuts onAdd={() => setQuickOpen(true)} onLogout={logout} />
+        <QuickAdd open={quickOpen} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
+        <TransactionModal open={fullOpen} initial={fullInitial} onClose={() => setFullOpen(false)} onSaved={saved} />
+
+        <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
+          <ul className="divide-y divide-slate-100">
+            {MORE.map((l) => (
+              <li key={l.to}>
+                <NavLink to={l.to} onClick={() => setMoreOpen(false)}
+                  className="flex min-h-12 items-center gap-3 py-2 text-base font-medium text-slate-800">
+                  <l.icon size={20} className="text-slate-500" aria-hidden="true" />
+                  <span className="flex-1">{l.label}</span>
+                  {l.badge && badges[l.badge] > 0 && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold text-white ${badgeColor(l.badge)}`}>
+                      {badges[l.badge]}<span className="sr-only"> {badgeText(l.badge, badges[l.badge])}</span>
+                    </span>
+                  )}
+                </NavLink>
+              </li>
+            ))}
+            <li>
+              <button type="button" onClick={logout} className="flex min-h-12 w-full items-center gap-3 py-2 text-base font-medium text-red-600">
+                <LogOut size={20} aria-hidden="true" /> Log out
+              </button>
             </li>
-          ))}
-          <li>
-            <button type="button" onClick={logout} className="flex min-h-12 w-full items-center gap-3 py-2 text-base font-medium text-red-600">
-              <LogOut size={20} aria-hidden="true" /> Log out
-            </button>
-          </li>
-        </ul>
-      </Modal>
-    </div>
+          </ul>
+        </Modal>
+      </div>
+    </QuickAddContext.Provider>
   );
 }

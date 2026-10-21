@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { toast } from "../utils/toast";
 import Modal from "./Modal";
 import PasswordInput from "./PasswordInput";
+import DemoData from "./DemoData";
 import { Block, Row, inputClass, secondaryBtn } from "./SettingsUI";
 
 const EXPORTS = [
@@ -67,6 +68,7 @@ export default function DataPrivacy() {
         ))}
       </Block>
 
+<DemoData />
         <Row label="Delete Account" hint="This can't be undone. Download a backup first.">
           <button onClick={openDelete}
             className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">

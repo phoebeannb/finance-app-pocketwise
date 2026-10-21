@@ -1,12 +1,18 @@
 import { useEffect } from "react";
 
-// Gives every table cell its column heading (used by the phone card layout)
+// Gives every table cell its column heading (used by the card layout) and keeps table meaning for screen readers
 function labelTables() {
   document.querySelectorAll("table.data-table").forEach((table) => {
-    const heads = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent.trim());
-    table.querySelectorAll("tbody tr:not([data-group])").forEach((tr) => {
+    table.setAttribute("role", "table");
+    table.querySelectorAll("thead, tbody").forEach((g) => g.setAttribute("role", "rowgroup"));
+    table.querySelectorAll("tr").forEach((tr) => tr.setAttribute("role", "row"));
+    const heads = Array.from(table.querySelectorAll("thead th"));
+    heads.forEach((th) => th.setAttribute("role", "columnheader"));
+    const names = heads.map((th) => th.textContent.trim());
+    table.querySelectorAll("tbody tr").forEach((tr) => {
       Array.from(tr.children).forEach((td, i) => {
-        const label = heads[i] ?? "";
+        td.setAttribute("role", "cell");
+        const label = names[i] ?? "";
         if (td.getAttribute("data-label") !== label) td.setAttribute("data-label", label);
       });
     });

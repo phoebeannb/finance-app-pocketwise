@@ -47,7 +47,7 @@ export default function Shortcuts({ onAdd, onLogout }) {
     const all = [
       { label: "Add a transaction", hint: "N", run: onAdd },
       ...PAGES.map(([label, to]) => ({ label: `Go to ${label}`, run: () => navigate(to) })),
-      { label: "Open inbox (uncategorized)", run: () => navigate("/transactions?inbox=1") },
+      { label: "Open inbox (uncategorized)", run: () => navigate("/") },
       { label: "Show keyboard shortcuts", hint: "?", run: () => setHelpOpen(true) },
       { label: "Log out", run: onLogout },
     ];

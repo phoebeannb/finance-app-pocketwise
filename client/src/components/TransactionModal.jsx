@@ -38,7 +38,7 @@ function Field({ label, children }) {
   );
 }
 
-export default function TransactionModal({ open, onClose, onSaved, editing }) {
+export default function TransactionModal({ open, onClose, onSaved, editing, initial }) {
   const [form, setForm] = useState(blank());
   const [accounts, setAccounts] = useState([]);
   const [receipt, setReceipt] = useState({ status: "none" });
@@ -84,7 +84,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing }) {
       });
       setReceipt({ status: editing.hasReceipt ? "existing" : "none" });
     } else {
-      setForm(blank());
+      setForm({ ...blank(), ...(initial || {}) });
       setReceipt({ status: "none" });
     }
   }, [open, editing, reload, defaultAccount]);
