@@ -43,10 +43,12 @@ router.post("/", async (req, res) => {
   try {
     const name = clean(req.body.name);
     const type = req.body.type;
+    const parent = clean(req.body.parent);
     if (!name) return res.status(400).json({ message: "Enter a category name" });
     if (!["expense", "income"].includes(type)) return res.status(400).json({ message: "Invalid category type" });
 
-    const category = await Category.create({ user: req.userId, name, key: name.toLowerCase(), type });
+    if (parent && parent.toLowerCase() === name.toLowerCase()) return res.status(400).json({ message: "A category cannot be its own parent" });
+    const category = await Category.create({ user: req.userId, name, key: name.toLowerCase(), type, parent });
     res.status(201).json(category);
   } catch (err) {
     if (err.code === 11000) return res.status(400).json({ message: "That category already exists" });

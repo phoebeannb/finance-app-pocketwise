@@ -9,9 +9,9 @@ import { nowLocalInput, toStored, toInput } from "../utils/datetime";
 import { toast } from "../utils/toast";
 import Modal from "./Modal";
 import CategoryModal from "./CategoryModal";
-import MoodPicker from "./MoodPicker";
 import TagInput from "./TagInput";
 import ReceiptField from "./ReceiptField";
+import MoodPrompt from "./MoodPrompt";
 
 const LAST_KEY = "pw_last_account";
 
@@ -29,10 +29,10 @@ const TYPES = [
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 
-function Field({ label, children }) {
+function Field({ label, htmlFor, children }) {
   return (
     <div>
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
       {children}
     </div>
   );
@@ -45,7 +45,10 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
   const [hint, setHint] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splits, setSplits] = useState([{ category: "", amount: "" }, { category: "", amount: "" }]);
   const [catOpen, setCatOpen] = useState(false);
+  const [moodPromptId, setMoodPromptId] = useState(null);
   const { expense, income, reload } = useCategories();
   const { prefs } = usePrefs();
   const defaultAccount = prefs.defaultAccount;
@@ -83,9 +86,13 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
         fee: editing.fee > 0 ? editing.fee : "",
       });
       setReceipt({ status: editing.hasReceipt ? "existing" : "none" });
+      setSplitEnabled(Boolean(editing.splits?.length));
+      setSplits(editing.splits?.length ? editing.splits : [{ category: "", amount: "" }, { category: "", amount: "" }]);
     } else {
       setForm({ ...blank(), ...(initial || {}) });
       setReceipt({ status: "none" });
+      setSplitEnabled(false);
+      setSplits([{ category: "", amount: "" }, { category: "", amount: "" }]);
     }
   }, [open, editing, reload, defaultAccount]);
 
@@ -129,16 +136,29 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
 
   const accountLabel = (a) => `${a.name} · ${formatMoney(a.currentBalance)}`;
   const totalOut = Number(form.amount || 0) + (form.hasFee ? Number(form.fee || 0) : 0);
+  const splitTotal = splits.reduce((sum, part) => sum + Number(part.amount || 0), 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setError("");
+    const amount = Number(form.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return setError("Enter an amount greater than zero.");
+    if (!form.date) return setError("Choose a date and time.");
+    if (!form.account) return setError(isTransfer ? "Choose the account the money is coming from." : "Choose an account.");
+    if (isTransfer && !form.toAccount) return setError("Choose the destination account.");
+    if (isTransfer && form.account === form.toAccount) return setError("Choose two different accounts for a transfer.");
+    if (!isTransfer && !splitEnabled && !form.category) return setError("Choose a category.");
+    if (!isTransfer && splitEnabled) {
+      if (splits.some((part) => !part.category || !(Number(part.amount) > 0))) return setError("Each split needs a category and amount.");
+      if (Math.abs(splitTotal - amount) > 0.01) return setError("Split amounts must add up to the transaction amount.");
+    }
     if (isTransfer && form.hasFee && !(Number(form.fee) > 0)) return setError("Enter the transfer fee amount");
     setSaving(true);
     const payload = {
       type: form.type,
-      amount: Number(form.amount),
-      category: isTransfer ? "" : form.category,
+      amount,
+      category: isTransfer || splitEnabled ? "" : form.category,
       description: form.description,
       notes: form.notes,
       tags: isTransfer ? [] : form.tags,
@@ -147,6 +167,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       account: form.account || null,
       toAccount: isTransfer ? form.toAccount || null : null,
       fee: isTransfer && form.hasFee ? Number(form.fee) : 0,
+      splits: !isTransfer && splitEnabled ? splits.map((part) => ({ category: part.category, amount: Number(part.amount) })) : [],
     };
     try {
       const res = editing ? await api.put(`/transactions/${editing._id}`, payload) : await api.post("/transactions", payload);
@@ -162,8 +183,10 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       if (!isTransfer && payload.account) {
         try { localStorage.setItem(LAST_KEY, payload.account); } catch { /* storage blocked */ }
       }
+      toast.success(editing ? "Transaction updated." : "Transaction added.");
       onSaved();
       onClose();
+      if (!editing && !isTransfer) setTimeout(() => setMoodPromptId(id), 0);
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
     } finally {
@@ -175,7 +198,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
     <>
       <Modal open={open} onClose={onClose} title={editing ? "Edit transaction" : "Add transaction"} closeOnEsc={!catOpen}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+          {error && <p role="alert" aria-live="assertive" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
           <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1" role="group" aria-label="Transaction type">
             {TYPES.map(([value, label, color]) => (
@@ -186,15 +209,15 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
             ))}
           </div>
 
-          <Field label="Amount">
-            <input name="amount" type="number" step="0.01" min="0.01" placeholder="0.00" value={form.amount}
+          <Field label="Amount" htmlFor="tx-amount">
+            <input id="tx-amount" name="amount" type="number" step="0.01" min="0.01" placeholder="0.00" value={form.amount}
               onChange={handleChange} required autoFocus className={`${field} text-lg`} />
           </Field>
 
           {!isTransfer && (
             <>
-              <Field label="Account">
-                <select name="account" value={form.account} onChange={handleChange}
+              <Field label="Account" htmlFor="tx-account">
+                <select id="tx-account" name="account" value={form.account} onChange={handleChange}
                   required={accounts.length > 0} className={field}>
                   <option value="" disabled={accounts.length > 0}>
                     {accounts.length > 0 ? "Select account" : "No accounts yet"}
@@ -209,9 +232,9 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
                 )}
               </Field>
 
-              <Field label="Category">
+              <Field label="Category" htmlFor="tx-category">
                 <div className="flex gap-2">
-                  <select name="category" value={form.category} onChange={handleChange} required className={`${field} min-w-0`}>
+                  <select id="tx-category" name="category" value={form.category} onChange={handleChange} required={!splitEnabled} className={`${field} min-w-0`}>
                     <option value="" disabled>Select category</option>
                     {cats.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -222,20 +245,45 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
                 </div>
                 {hint && form.category && <p className="mt-1 text-xs text-slate-600">{hint}</p>}
               </Field>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+                  <input type="checkbox" checked={splitEnabled} onChange={(e) => setSplitEnabled(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
+                  Split this transaction across categories
+                </label>
+                {splitEnabled && (
+                  <div className="mt-3 space-y-2">
+                    {splits.map((part, index) => (
+                      <div key={index} className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
+                        <select aria-label={`Split ${index + 1} category`} value={part.category}
+                          onChange={(e) => setSplits((rows) => rows.map((row, i) => i === index ? { ...row, category: e.target.value } : row))} className={field}>
+                          <option value="">Category</option>
+                          {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input aria-label={`Split ${index + 1} amount`} type="number" min="0.01" step="0.01" placeholder="Amount" value={part.amount}
+                          onChange={(e) => setSplits((rows) => rows.map((row, i) => i === index ? { ...row, amount: e.target.value } : row))} className={field} />
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setSplits((rows) => [...rows, { category: "", amount: "" }])} className="text-sm font-medium text-indigo-700 hover:underline">+ Add another split</button>
+                    <p className={`text-xs ${Math.abs(splitTotal - Number(form.amount || 0)) <= 0.01 ? "text-green-700" : "text-amber-700"}`}>
+                      Split total: {formatMoney(splitTotal)} of {formatMoney(Number(form.amount || 0))}
+                    </p>
+                  </div>
+                )}
+              </div>
             </>
           )}
 
           {isTransfer && (
             <>
-              <Field label="From account">
-                <select name="account" value={form.account} onChange={handleChange} required className={field}>
+              <Field label="From account" htmlFor="tx-from-account">
+                <select id="tx-from-account" name="account" value={form.account} onChange={handleChange} required className={field}>
                   <option value="" disabled>Select an account</option>
                   {accounts.map((a) => <option key={a._id} value={a._id}>{accountLabel(a)}</option>)}
                 </select>
               </Field>
 
-              <Field label="To account">
-                <select name="toAccount" value={form.toAccount} onChange={handleChange} required className={field}>
+              <Field label="To account" htmlFor="tx-to-account">
+                <select id="tx-to-account" name="toAccount" value={form.toAccount} onChange={handleChange} required className={field}>
                   <option value="" disabled>Select destination account</option>
                   {accounts.filter((a) => a._id !== form.account).map((a) => (
                     <option key={a._id} value={a._id}>{accountLabel(a)}</option>
@@ -267,8 +315,8 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
             </>
           )}
 
-          <Field label="Description">
-            <input name="description" placeholder="Optional note" value={form.description} onChange={handleChange} className={field} />
+          <Field label="Description" htmlFor="tx-description">
+            <input id="tx-description" name="description" placeholder="Optional note" value={form.description} onChange={handleChange} className={field} />
           </Field>
 
           {!isTransfer && (
@@ -276,14 +324,11 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
               <Field label="Tags (optional)">
                 <TagInput value={form.tags} onChange={(tags) => setForm({ ...form, tags })} />
               </Field>
-              <Field label="How were you feeling? (optional)">
-                <MoodPicker value={form.mood} onChange={(mood) => setForm({ ...form, mood })} />
-              </Field>
             </>
           )}
 
-          <Field label="Notes (optional)">
-            <textarea name="notes" rows={2} maxLength={500} value={form.notes} onChange={handleChange}
+          <Field label="Notes (optional)" htmlFor="tx-notes">
+            <textarea id="tx-notes" name="notes" rows={2} maxLength={500} value={form.notes} onChange={handleChange}
               placeholder="Anything you want to remember about this" className={field} />
           </Field>
 
@@ -291,8 +336,8 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
             <ReceiptField txId={editing?._id} state={receipt} onChange={setReceipt} />
           </Field>
 
-          <Field label="Date & time">
-            <input name="date" type="datetime-local" value={form.date} onChange={handleChange} required className={field} />
+          <Field label="Date & time" htmlFor="tx-date">
+            <input id="tx-date" name="date" type="datetime-local" value={form.date} onChange={handleChange} required className={field} />
           </Field>
 
           <button type="submit" disabled={saving}
@@ -309,6 +354,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
         onClose={() => setCatOpen(false)}
         onCreated={(name) => { setForm((f) => ({ ...f, category: name })); reload(); }}
       />
+      <MoodPrompt transactionId={moodPromptId} onClose={() => { setMoodPromptId(null); onClose(); }} />
     </>
   );
 }

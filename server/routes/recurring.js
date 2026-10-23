@@ -5,12 +5,14 @@ import Account from "../models/Account.js";
 import auth from "../middleware/auth.js";
 import { startOfToday } from "../utils/dates.js";
 import { processDue, nextOccurrence, firstOnOrAfter } from "../utils/recurring.js";
+import { archiveDeleted } from "../utils/deletedItems.js";
 
 const router = express.Router();
 router.use(auth);
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const CADENCES = ["weekly", "monthly", "yearly"];
+const VALUE_RATINGS = ["high", "neutral", "unused"];
 const r2 = (n) => Math.round(n * 100) / 100;
 
 async function build(body, userId, existing) {
@@ -21,6 +23,9 @@ async function build(body, userId, existing) {
   if (!Number.isFinite(amount) || amount <= 0 || amount >= 1e9) return { error: "Enter an amount greater than 0" };
   if (!CADENCES.includes(body.cadence)) return { error: "Choose how often it repeats" };
   if (!YMD.test(body.nextDate || "")) return { error: "Pick the next due date" };
+  if (body.trialEnds && !YMD.test(body.trialEnds)) return { error: "Invalid trial end date" };
+  const reminderDays = Number(body.reminderDays ?? 3);
+  if (!Number.isInteger(reminderDays) || reminderDays < 0 || reminderDays > 30) return { error: "Reminder days must be between 0 and 30" };
 
   const next = new Date(`${body.nextDate}T00:00:00.000Z`);
   if (Number.isNaN(next.getTime())) return { error: "Invalid date" };
@@ -40,6 +45,9 @@ async function build(body, userId, existing) {
       name, type: body.type, amount: r2(amount),
       category: String(body.category || "").trim().slice(0, 60),
       account, cadence: body.cadence, nextDate: next, anchorDay: next.getUTCDate(),
+      autoRenew: Boolean(body.autoRenew),
+      trialEnds: body.trialEnds ? new Date(`${body.trialEnds}T00:00:00.000Z`) : null,
+      reminderDays,
     },
   };
 }
@@ -78,6 +86,23 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+router.post("/:id/rating", async (req, res) => {
+  try {
+    const { rating } = req.body;
+    if (!VALUE_RATINGS.includes(rating)) return res.status(400).json({ message: "Invalid bill value rating" });
+
+    const item = await Recurring.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId, type: "expense" },
+      { valueRating: rating },
+      { new: true, runValidators: true }
+    );
+    if (!item) return res.status(404).json({ message: "Bill not found" });
+    res.json(item);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // Pause / resume. Resuming skips what was missed while paused instead of posting it all at once.
 router.post("/:id/toggle", async (req, res) => {
   try {
@@ -111,8 +136,10 @@ router.post("/:id/skip", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const item = await Recurring.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const item = await Recurring.findOne({ _id: req.params.id, user: req.userId });
     if (!item) return res.status(404).json({ message: "Not found" });
+    await archiveDeleted(req.userId, "bill", item);
+    await item.deleteOne();
     res.json({ message: "Deleted" });
   } catch {
     res.status(404).json({ message: "Not found" });

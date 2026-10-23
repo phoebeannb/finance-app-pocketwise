@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { PH_BANK_GROUPS } from "../utils/banks";
+import BrandLogo from "./BrandLogo";
 
 export default function BankPicker({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -20,7 +21,10 @@ export default function BankPicker({ value, onChange }) {
     >
       <button type="button" onClick={() => setOpen(true)}
         className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100">
-        <span className={value ? "text-slate-800" : "text-slate-400"}>{value || "Select bank or e-wallet"}</span>
+        <span className="flex items-center gap-2">
+          {value && <BrandLogo name={value} label={value} size="sm" />}
+          <span className={value ? "text-slate-800" : "text-slate-400"}>{value || "Select bank or e-wallet"}</span>
+        </span>
         <ChevronDown size={18} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -32,7 +36,8 @@ export default function BankPicker({ value, onChange }) {
                 <div className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{g.group}</div>
                 {g.options.map((o) => (
                   <button type="button" key={o} onClick={() => pick(o)}
-                    className={`block w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 ${value === o ? "bg-indigo-50 font-medium text-indigo-700" : ""}`}>
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-indigo-50 ${value === o ? "bg-indigo-50 font-medium text-indigo-700" : ""}`}>
+                    <BrandLogo name={o} label={o} size="sm" />
                     {o}
                   </button>
                 ))}

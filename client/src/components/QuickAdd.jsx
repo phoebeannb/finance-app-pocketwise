@@ -6,23 +6,30 @@ import { formatMoney } from "../utils/format";
 import { nowLocalInput, toStored } from "../utils/datetime";
 import { toast } from "../utils/toast";
 import Modal from "./Modal";
-import MoodPicker from "./MoodPicker";
+import TagInput from "./TagInput";
+import ReceiptField from "./ReceiptField";
+import MoodPrompt from "./MoodPrompt";
 
 const LAST_KEY = "pw_last_account";
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 const symbol = () => formatMoney(0).replace(/[\d.,\s\u00a0]/g, "");
 
-export default function QuickAdd({ open, onClose, onSaved, onMore }) {
+export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const uid = useId();
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [notes, setNotes] = useState("");
+  const [tags, setTags] = useState([]);
+  const [receipt, setReceipt] = useState({ status: "none" });
   const [category, setCategory] = useState("");
   const [account, setAccount] = useState("");
-  const [mood, setMood] = useState("");
+  const [toAccount, setToAccount] = useState("");
+  const [hasFee, setHasFee] = useState(false);
+  const [fee, setFee] = useState("");
+  const [moodPromptId, setMoodPromptId] = useState(null);
   const [accounts, setAccounts] = useState([]);
-  const [frequent, setFrequent] = useState({ expense: [], income: [] });
   const [hint, setHint] = useState("");
   const [saving, setSaving] = useState(false);
   const { expense, income, reload } = useCategories();
@@ -33,9 +40,9 @@ export default function QuickAdd({ open, onClose, onSaved, onMore }) {
 
   useEffect(() => {
     if (!open) return;
-    setType("expense"); setAmount(""); setNote(""); setCategory(""); setMood(""); setHint(""); setAccount("");
+    setType(["income", "expense", "transfer"].includes(initial?.type) ? initial.type : "expense"); setAmount(""); setNote(""); setNotes(""); setTags([]); setReceipt({ status: "none" });
+    setCategory(""); setHint(""); setAccount(""); setToAccount(""); setHasFee(false); setFee("");
     reload();
-    api.get("/transactions/frequent").then(({ data }) => setFrequent(data)).catch(() => {});
     api.get("/accounts").then(({ data }) => {
       setAccounts(data);
       let last = "";
@@ -43,11 +50,11 @@ export default function QuickAdd({ open, onClose, onSaved, onMore }) {
       const pick = [last, defaultAccount].find((id) => id && data.some((a) => a._id === id));
       if (pick) setAccount(pick);
     }).catch(() => {});
-  }, [open, reload, defaultAccount]);
+  }, [open, initial, reload, defaultAccount]);
 
   // Suggest a category from what you typed (only fills it if you haven't chosen one)
   useEffect(() => {
-    if (!open) return;
+    if (!open || type === "transfer") return;
     const text = note.trim();
     if (text.length < 3) { setHint(""); return; }
     const t = setTimeout(() => {
@@ -67,44 +74,50 @@ export default function QuickAdd({ open, onClose, onSaved, onMore }) {
   const pickType = (t) => { setType(t); setCategory(""); setHint(""); };
 
   const all = type === "income" ? income : expense;
-  const chips = [];
-  for (const c of [...(frequent[type] || []), ...all]) {
-    if (chips.length < 8 && !chips.some((x) => x.toLowerCase() === c.toLowerCase())) chips.push(c);
-  }
-  if (category && !chips.some((x) => x.toLowerCase() === category.toLowerCase())) chips.push(category);
-  const others = all.filter((c) => !chips.some((x) => x.toLowerCase() === c.toLowerCase()));
-
   const submit = async (e) => {
     e.preventDefault();
     const n = Number(amount);
     if (!(n > 0)) return toast.error("Enter the amount first, for example 150.");
+    if (type === "transfer" && !account) return toast.error("Choose the account the money is coming from.");
+    if (type === "transfer" && !toAccount) return toast.error("Choose the account receiving the money.");
+    if (type === "transfer" && account === toAccount) return toast.error("Choose two different accounts.");
+    if (type === "transfer" && hasFee && !(Number(fee) > 0)) return toast.error("Enter the transfer fee amount.");
     setSaving(true);
     try {
-      await api.post(
+      const res = await api.post(
         "/transactions",
         {
-          type, amount: n, description: note.trim(), category, mood, account: account || null,
-          toAccount: null, fee: 0, date: toStored(nowLocalInput()),
+          type, amount: n, description: note.trim(), notes: notes.trim(), tags: type === "transfer" ? [] : tags,
+          category, mood: "", account: account || null,
+          splits: [],
+          toAccount: type === "transfer" ? toAccount : null, fee: type === "transfer" && hasFee ? Number(fee) : 0, date: toStored(nowLocalInput()),
         },
         { successMessage: category ? undefined : "Saved to your inbox. Sort it from the Overview when you have a minute." }
       );
+      if (receipt.status === "new") {
+        try {
+          await api.put(`/transactions/${res.data._id}/receipt`, { image: receipt.data }, { quiet: true });
+        } catch {
+          toast.error("The transaction was saved, but the receipt photo could not be attached. Open it again to retry.");
+        }
+      }
       if (account) { try { localStorage.setItem(LAST_KEY, account); } catch { /* storage blocked */ } }
       onSaved();
       onClose();
+      if (type !== "transfer") setTimeout(() => setMoodPromptId(res.data._id), 0);
     } catch { /* the red message explains what to fix */ } finally {
       setSaving(false);
     }
   };
 
-  const details = () => onMore({ type, amount, description: note, category, account, mood });
-
   return (
+    <>
     <Modal open={open} onClose={onClose} title="Add transaction">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Type">
-          {[["expense", "Expense", "border-red-600 bg-red-50 text-red-800"], ["income", "Income", "border-green-600 bg-green-50 text-green-800"]].map(([v, label, on]) => (
+        <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1" role="group" aria-label="Type">
+          {[["income", "Income", "text-green-700"], ["expense", "Expense", "text-red-700"], ["transfer", "Transfer", "text-slate-900"]].map(([v, label, on]) => (
             <button type="button" key={v} onClick={() => pickType(v)} aria-pressed={type === v}
-              className={`rounded-lg border-2 py-2 text-sm font-semibold ${type === v ? on : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              className={`rounded-md py-2 text-sm font-medium ${type === v ? `bg-white shadow-sm ${on}` : "text-slate-600 hover:text-slate-900"}`}>
               {label}
             </button>
           ))}
@@ -122,57 +135,79 @@ export default function QuickAdd({ open, onClose, onSaved, onMore }) {
 
         <div>
           <label htmlFor={`${uid}-note`} className="mb-1 block text-sm font-medium text-slate-700">
-            What was it for? <span className="font-normal text-slate-600">(optional)</span>
+            What was it for? <span className="font-normal text-slate-600">(description)</span>
           </label>
           <input id={`${uid}-note`} value={note} maxLength={200} placeholder="e.g. lunch at Jollibee" onChange={(e) => setNote(e.target.value)} className={field} />
+          <p className="mt-1 text-xs text-slate-600">A short label that helps you recognize the transaction.</p>
         </div>
 
-        <div>
+        {type !== "transfer" && <div>
           <div className="mb-1 flex items-baseline justify-between gap-2">
             <span className="text-sm font-medium text-slate-700" id={`${uid}-cat`}>Category</span>
             {hint && category && <span className="text-xs text-slate-600">{hint}</span>}
           </div>
-          <div className="flex flex-wrap gap-2" role="group" aria-labelledby={`${uid}-cat`}>
-            {chips.map((c) => (
-              <button type="button" key={c} onClick={() => setCategory(category === c ? "" : c)} aria-pressed={category === c}
-                className={`rounded-full border px-3 py-1.5 text-sm ${category === c ? "border-indigo-600 bg-indigo-50 font-medium text-indigo-900" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
-                {c}
-              </button>
-            ))}
-          </div>
-          {others.length > 0 && (
-            <select aria-label="More categories" value="" onChange={(e) => e.target.value && setCategory(e.target.value)} className={`${field} mt-2`}>
-              <option value="">More categories…</option>
-              {others.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          )}
+          <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
+            <option value="">Select category</option>
+            {all.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           {!category && <p className="mt-1.5 text-xs text-slate-600">No category? It waits in your inbox on the Overview.</p>}
-        </div>
+        </div>}
 
-        <div>
+        {type === "transfer" && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-slate-700">From account
+              <select value={account} onChange={(e) => setAccount(e.target.value)} className={field} required>
+                <option value="">Select account</option>
+                {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-slate-700">To account
+              <select value={toAccount} onChange={(e) => setToAccount(e.target.value)} className={field} required>
+                <option value="">Select destination</option>
+                {accounts.filter((a) => a._id !== account).map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={hasFee} onChange={(e) => setHasFee(e.target.checked)} className="h-4 w-4 accent-indigo-600" /> This transfer has a fee
+            </label>
+            {hasFee && <input type="number" min="0.01" step="0.01" placeholder="Transfer fee" value={fee} onChange={(e) => setFee(e.target.value)} className={field} />}
+          </div>
+        )}
+
+        {type !== "transfer" && (
+          <div className="space-y-3">
+            <div>
+              <label htmlFor={`${uid}-notes`} className="mb-1 block text-sm font-medium text-slate-700">Note (optional)</label>
+              <textarea id={`${uid}-notes`} value={notes} maxLength={500} rows={2}
+                placeholder="Anything you want to remember" onChange={(e) => setNotes(e.target.value)} className={field} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Tags (optional)</label>
+              <TagInput value={tags} onChange={setTags} />
+            </div>
+            <div>
+              <span className="mb-1 block text-sm font-medium text-slate-700">Receipt (optional)</span>
+              <ReceiptField txId={null} state={receipt} onChange={setReceipt} />
+            </div>
+          </div>
+        )}
+
+        {type !== "transfer" && <div>
           <label htmlFor={`${uid}-acc`} className="mb-1 block text-sm font-medium text-slate-700">Account</label>
           <select id={`${uid}-acc`} value={account} onChange={(e) => setAccount(e.target.value)} className={field}>
             <option value="">{accounts.length ? "No account (balances won't change)" : "No accounts yet"}</option>
             {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
           </select>
-        </div>
-
-        <div>
-          <span className="mb-1 block text-sm font-medium text-slate-700">How were you feeling? <span className="font-normal text-slate-600">(optional)</span></span>
-          <MoodPicker value={mood} onChange={setMood} />
-        </div>
+        </div>}
 
         <button type="submit" disabled={saving}
           className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">
           {saving ? "Saving..." : "Add transaction"}
         </button>
 
-        <p className="text-center text-sm text-slate-600">
-          <button type="button" onClick={details} className="font-medium text-indigo-700 hover:underline">More details</button>
-          {" "}(tags, receipt, notes, date) ·{" "}
-          <button type="button" onClick={() => onMore({ type: "transfer", amount })} className="font-medium text-indigo-700 hover:underline">Moving money between accounts?</button>
-        </p>
       </form>
     </Modal>
+    <MoodPrompt transactionId={moodPromptId} onClose={() => { setMoodPromptId(null); onClose(); }} />
+    </>
   );
 }

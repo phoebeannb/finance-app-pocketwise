@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
-  LogOut, Plus, Wallet, MoreHorizontal, PanelLeftOpen, PanelLeftClose,
+  LogOut, Plus, Wallet, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -11,10 +11,12 @@ import TransactionModal from "./TransactionModal";
 import QuickAdd from "./QuickAdd";
 import Modal from "./Modal";
 import Shortcuts from "./Shortcuts";
+import ConfirmModal from "./ConfirmModal";
 
 const OVERVIEW = { to: "/", label: "Overview", icon: LayoutDashboard, end: true };
 const ACCOUNTS = { to: "/accounts", label: "Accounts", icon: Landmark };
 const TRANSACTIONS = { to: "/transactions", label: "Transactions", icon: ArrowLeftRight };
+const DEBTS = { to: "/debts", label: "Utang & Shared", icon: Users };
 const BUDGETS = { to: "/budgets", label: "Budgets", icon: Gauge, badge: "budgets" };
 const BILLS = { to: "/bills", label: "Bills", icon: CalendarClock, badge: "bills" };
 const GOALS = { to: "/goals", label: "Goals", icon: Target };
@@ -22,11 +24,11 @@ const REPORTS = { to: "/reports", label: "Reports", icon: BarChart3 };
 const SETTINGS = { to: "/settings", label: "Settings", icon: Settings };
 
 const GROUPS = [
-  { title: "Money", links: [OVERVIEW, ACCOUNTS, TRANSACTIONS] },
+  { title: "Money", links: [OVERVIEW, ACCOUNTS, TRANSACTIONS, DEBTS] },
   { title: "Planning", links: [BUDGETS, BILLS, GOALS] },
   { title: "Analysis", links: [REPORTS] },
 ];
-const MORE = [ACCOUNTS, BILLS, GOALS, REPORTS, SETTINGS];
+const MORE = [ACCOUNTS, TRANSACTIONS, DEBTS, BILLS, GOALS, REPORTS, SETTINGS];
 
 const daysUntil = (iso) => {
   const d = new Date();
@@ -167,16 +169,25 @@ export default function Layout() {
   const location = useLocation();
   const [wide, setWide] = useState(false); // tablet rail: show labels or not
   const [quickOpen, setQuickOpen] = useState(false);
+  const [quickInitial, setQuickInitial] = useState(null);
   const [fullOpen, setFullOpen] = useState(false);
   const [fullInitial, setFullInitial] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [params, setParams] = useSearchParams();
   const badges = useBadges(`${location.pathname}-${refresh}`);
 
   const saved = useCallback(() => setRefresh((k) => k + 1), []);
-  const ctx = useMemo(() => ({ open: () => setQuickOpen(true), refresh: saved }), [saved]);
+  const ctx = useMemo(() => ({
+    open: (initial) => { setQuickInitial(initial || null); setQuickOpen(true); },
+    refresh: saved,
+  }), [saved]);
   const openFull = (initial) => { setFullInitial(initial || null); setQuickOpen(false); setFullOpen(true); };
+  const requestLogout = () => {
+    setMoreOpen(false);
+    setLogoutOpen(true);
+  };
 
   // Opened from the installed app's shortcut (/?add=1)
   useEffect(() => {
@@ -191,17 +202,20 @@ export default function Layout() {
   return (
     <QuickAddContext.Provider value={ctx}>
       <div className="min-h-screen w-full bg-[#f4f5f7] text-slate-900 sm:flex">
+        <a href="#main-content" className="sr-only fixed left-3 top-3 z-[100] rounded-lg bg-white px-4 py-3 font-medium text-indigo-700 shadow-lg focus:not-sr-only">
+          Skip to main content
+        </a>
         {/* Desktop: full side menu */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-zinc-950 text-white lg:block">
-          <SideNav labels badges={badges} user={user} onLogout={logout} />
+          <SideNav labels badges={badges} user={user} onLogout={requestLogout} />
         </aside>
 
         {/* Tablet: icon rail (tap the arrow to show names) */}
         <aside className={`sticky top-0 hidden h-screen shrink-0 bg-zinc-950 text-white sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
-          <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} user={user} onLogout={logout} />
+          <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} user={user} onLogout={requestLogout} />
         </aside>
 
-        <main className="min-w-0 flex-1 p-4 pb-28 sm:p-6 sm:pb-8 lg:p-8">
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-4 pb-28 outline-none sm:p-6 sm:pb-8 lg:p-8">
           {/* Changing the key reloads the page you're on, so new data shows up after saving */}
           <div key={refresh}>
             <Outlet />
@@ -220,7 +234,7 @@ export default function Layout() {
               </button>
             </div>
             <TabLink item={BUDGETS} badges={badges} />
-            <button type="button" onClick={() => setMoreOpen(true)}
+            <button type="button" onClick={() => setMoreOpen(true)} aria-expanded={moreOpen} aria-haspopup="dialog"
               className="relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-slate-600">
               <MoreHorizontal size={22} aria-hidden="true" />
               More
@@ -233,8 +247,8 @@ export default function Layout() {
           </div>
         </nav>
 
-        <Shortcuts onAdd={() => setQuickOpen(true)} onLogout={logout} />
-        <QuickAdd open={quickOpen} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
+        <Shortcuts onAdd={() => setQuickOpen(true)} onLogout={requestLogout} />
+        <QuickAdd open={quickOpen} initial={quickInitial} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
         <TransactionModal open={fullOpen} initial={fullInitial} onClose={() => setFullOpen(false)} onSaved={saved} />
 
         <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
@@ -254,12 +268,20 @@ export default function Layout() {
               </li>
             ))}
             <li>
-              <button type="button" onClick={logout} className="flex min-h-12 w-full items-center gap-3 py-2 text-base font-medium text-red-600">
+              <button type="button" onClick={requestLogout} className="flex min-h-12 w-full items-center gap-3 py-2 text-base font-medium text-red-600">
                 <LogOut size={20} aria-hidden="true" /> Log out
               </button>
             </li>
           </ul>
         </Modal>
+        <ConfirmModal
+          open={logoutOpen}
+          title="Log out?"
+          message="Are you sure you want to log out of PocketWise?"
+          confirmLabel="Log out"
+          onClose={() => setLogoutOpen(false)}
+          onConfirm={logout}
+        />
       </div>
     </QuickAddContext.Provider>
   );

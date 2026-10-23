@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import Modal from "./Modal";
 
-export default function CategoryModal({ open, type, existing = [], onClose, onCreated }) {
+export default function CategoryModal({ open, type, existing = [], parents = [], onClose, onCreated }) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [parent, setParent] = useState("");
 
   useEffect(() => {
-    if (open) { setName(""); setError(""); }
+    if (open) { setName(""); setParent(""); setError(""); }
   }, [open]);
 
   const submit = async (e) => {
@@ -19,7 +20,7 @@ export default function CategoryModal({ open, type, existing = [], onClose, onCr
       return setError("That category already exists");
     setSaving(true);
     try {
-      const { data } = await api.post("/categories", { name: clean, type });
+      const { data } = await api.post("/categories", { name: clean, type, parent });
       onCreated(data.name);
       onClose();
     } catch (err) {
@@ -36,6 +37,13 @@ export default function CategoryModal({ open, type, existing = [], onClose, onCr
         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={30}
           placeholder="e.g. Pets, Gym, Online classes"
           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100" />
+        {parents.length > 0 && (
+          <select value={parent} onChange={(e) => setParent(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100">
+            <option value="">Top-level category</option>
+            {parents.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
         <button type="submit" disabled={saving}
           className="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">
           {saving ? "Saving..." : "Create category"}

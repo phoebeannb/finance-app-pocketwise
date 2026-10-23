@@ -35,7 +35,8 @@ export default function ToastHost() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-x-4 top-4 z-[100] flex flex-col items-end gap-2 sm:left-auto sm:w-96">
+    <div className="pointer-events-none fixed inset-x-4 top-4 z-[100] flex flex-col items-end gap-2 sm:left-auto sm:w-96"
+      aria-live="polite" aria-atomic="false">
       {items.map((t) => {
         const ok = t.type === "success";
         return (

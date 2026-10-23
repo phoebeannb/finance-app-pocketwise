@@ -4,6 +4,7 @@ import Goal from "../models/Goal.js";
 import Account from "../models/Account.js";
 import Transaction from "../models/Transaction.js";
 import auth from "../middleware/auth.js";
+import { archiveDeleted } from "../utils/deletedItems.js";
 
 const router = express.Router();
 router.use(auth);
@@ -117,8 +118,10 @@ router.post("/:id/funds", async (req, res) => {
 // Deleting a goal also removes its savings entries, so the money goes back to the accounts it came from
 router.delete("/:id", async (req, res) => {
   try {
-    const goal = await Goal.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const goal = await Goal.findOne({ _id: req.params.id, user: req.userId });
     if (!goal) return res.status(404).json({ message: "That goal wasn't found" });
+    await archiveDeleted(req.userId, "goal", goal);
+    await goal.deleteOne();
     await Transaction.deleteMany({ user: req.userId, goal: goal._id });
     res.json({ message: "Deleted" });
   } catch {

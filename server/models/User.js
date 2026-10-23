@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
     currency: { type: String, default: "PHP" },
     dateFormat: { type: String, default: "medium" },
     defaultAccount: { type: mongoose.Schema.Types.ObjectId, ref: "Account", default: null },
+    reportRange: { type: Number, enum: [6, 12], default: 6 },
   },
 }, { timestamps: true });
 

@@ -29,12 +29,16 @@ async function totals(uid, from, to) {
   };
 }
 
-const categoryTotals = (uid, from, to) =>
-  Transaction.aggregate([
-    { $match: { user: uid, type: "expense", date: { $gte: from, $lt: to } } },
-    { $group: { _id: { $ifNull: ["$category", ""] }, total: { $sum: "$amount" } } },
-    { $sort: { total: -1 } },
-  ]);
+const categoryTotals = async (uid, from, to) => {
+  const txs = await Transaction.find({ user: uid, type: "expense", date: { $gte: from, $lt: to } })
+    .select("category amount splits").lean();
+  const totals = {};
+  for (const tx of txs) {
+    const parts = tx.splits?.length ? tx.splits : [{ category: tx.category, amount: tx.amount }];
+    for (const part of parts) totals[part.category || ""] = (totals[part.category || ""] || 0) + part.amount;
+  }
+  return Object.entries(totals).sort((a, b) => b[1] - a[1]).map(([category, total]) => ({ _id: category, total }));
+};
 
 /*
   For the current month, "last month" means the same number of days (so day 10 is compared with last month's first 10 days).
@@ -99,12 +103,13 @@ router.get("/", async (req, res) => {
       };
     }
 
-    const due = await Recurring.find({
-      user: uid, active: true, type: "expense", nextDate: { $lte: addDays(today, 7) },
+    const dueCandidates = await Recurring.find({
+      user: uid, active: true, type: "expense", nextDate: { $lte: addDays(today, 30) },
     }).sort({ nextDate: 1 }).lean();
+    const due = dueCandidates.filter((item) => item.nextDate.getTime() <= addDays(today, item.reminderDays ?? 3).getTime());
     const billsDue = {
       total: r2(due.reduce((s, i) => s + i.amount, 0)),
-      items: due.map(({ _id, name, amount, nextDate, category, valueRating }) => ({ _id, name, amount, nextDate, category, valueRating })),
+      items: due.map(({ _id, name, amount, nextDate, category, valueRating, reminderDays }) => ({ _id, name, amount, nextDate, category, valueRating, reminderDays })),
     };
 
     res.json({ compare: isCurrent ? "pace" : "full", now, before, top, forecast, billsDue });

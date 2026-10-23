@@ -13,6 +13,10 @@ import Bills from "./pages/Bills";
 import Goals from "./pages/Goals";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import SetupGuide from "./pages/SetupGuide";
+import Debts from "./pages/Debts";
+import SharedGroup from "./pages/SharedGroup";
+import RecentlyDeleted from "./pages/RecentlyDeleted";
 
 export default function App() {
   return (
@@ -24,6 +28,10 @@ export default function App() {
 
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/setup" element={<SetupGuide />} />
+        <Route path="/debts" element={<Debts />} />
+        <Route path="/debts/groups/:id" element={<SharedGroup />} />
+        <Route path="/recently-deleted" element={<RecentlyDeleted />} />
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/budgets" element={<Budgets />} />

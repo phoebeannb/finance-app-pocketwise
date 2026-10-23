@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import api from "../api/axios";
 import { formatMoney } from "../utils/format";
+import { toast } from "../utils/toast";
 import { monthNow, shiftMonth, monthLabel } from "../utils/months";
 import useCategories from "../hooks/useCategories";
 import Modal from "../components/Modal";
@@ -23,6 +24,7 @@ export default function Budgets() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ category: "", limit: "" });
   const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [toDelete, setToDelete] = useState(null);
   const { expense, reload } = useCategories();
@@ -70,15 +72,22 @@ export default function Budgets() {
 
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setFormError("");
     const payload = { category: form.category, limit: Number(form.limit) };
+    if (!payload.category) return setFormError("Choose a category.");
+    if (!Number.isFinite(payload.limit) || payload.limit <= 0) return setFormError("Enter a monthly limit greater than zero.");
+    setSaving(true);
     try {
       if (editing) await api.put(`/budgets/${editing._id}`, payload);
       else await api.post("/budgets", payload);
       setOpen(false);
+      toast.success(editing ? "Budget updated." : "Budget created.");
       load();
     } catch (err) {
       setFormError(err.response?.data?.message || "Something went wrong");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -108,7 +117,7 @@ export default function Budgets() {
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat label="Budget" value={formatMoney(totals.limit)} />
-            <Stat label="Spent on budgeted " value={formatMoney(totals.spent)} color="text-red-600" />
+            <Stat label="Spent on budgeted" value={formatMoney(totals.spent)} color="text-slate-900" />
             <Stat label="Spending without a budget" value={formatMoney(unbudgeted.reduce((s, c) => s + c.total, 0))}
             color="text-amber-600" />
             <Stat label={totals.left < 0 ? "Over by" : "Remaining"} value={formatMoney(Math.abs(totals.left))}
@@ -136,7 +145,9 @@ export default function Budgets() {
                       <td>
                         <div className="flex items-center gap-2">
                           <Progress pct={pct} color={bar} />
-                          <span className={`w-10 text-xs ${pct >= 100 ? "text-red-600" : pct >= 80 ? "text-amber-600" : "text-slate-500"}`}>{pct}%</span>
+                          <span className={`w-24 text-xs ${pct >= 100 ? "text-red-600" : pct >= 80 ? "text-amber-600" : "text-slate-500"}`}>
+                            {pct >= 100 ? "Over budget" : pct >= 80 ? "Getting close" : "On track"} · {pct}%
+                          </span>
                         </div>
                       </td>
                       <td className="actions">
@@ -199,8 +210,8 @@ export default function Budgets() {
           <label className="block text-sm font-medium text-slate-700">Monthly limit</label>
           <input type="number" min="1" step="0.01" placeholder="e.g. 5000" value={form.limit}
             onChange={(e) => setForm({ ...form, limit: e.target.value })} required className={field} />
-          <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
-            {editing ? "Save Changes" : "Add budget"}
+          <button type="submit" disabled={saving} className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+            {saving ? "Saving..." : editing ? "Save Changes" : "Add budget"}
           </button>
         </form>
       </Modal>
@@ -217,7 +228,7 @@ export default function Budgets() {
         open={!!toDelete}
         message={`Delete the ${toDelete?.category} budget? Your transactions aren't affected.`}
         onClose={() => setToDelete(null)}
-        onConfirm={async () => { await api.delete(`/budgets/${toDelete._id}`); load(); }}
+        onConfirm={async () => { await api.delete(`/budgets/${toDelete._id}`); toast.success("Budget deleted."); load(); }}
       />
     </div>
   );

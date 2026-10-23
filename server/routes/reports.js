@@ -66,7 +66,7 @@ async function run(userId, period) {
     date: { $gte: buckets[0].start },
     // income and expenses, plus transfers that carried a fee (the fee is an expense)
     $or: [{ type: { $in: ["income", "expense"] } }, { type: "transfer", fee: { $gt: 0 } }],
-  }).select("type amount fee category date").lean();
+  }).select("type amount fee category splits date").lean();
 
   const series = buckets.map((b) => ({ key: b.key, label: b.label, income: 0, expenses: 0, savings: 0 }));
   const index = Object.fromEntries(series.map((s, i) => [s.key, i]));
@@ -79,8 +79,11 @@ async function run(userId, period) {
       series[i].income += t.amount;
     } else if (t.type === "expense") {
       series[i].expenses += t.amount;
-      const c = t.category?.trim() || "Uncategorized";
-      cats[c] = (cats[c] || 0) + t.amount;
+      const parts = t.splits?.length ? t.splits : [{ category: t.category, amount: t.amount }];
+      for (const part of parts) {
+        const c = part.category?.trim() || "Uncategorized";
+        cats[c] = (cats[c] || 0) + part.amount;
+      }
     } else {
       series[i].expenses += t.fee;
       cats["Transfer Fees"] = (cats["Transfer Fees"] || 0) + t.fee;

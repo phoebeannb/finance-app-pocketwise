@@ -40,6 +40,7 @@ export default function CategoriesManager() {
   const builtIn = type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   const mine = (cats || []).filter((c) => c.type === type);
   const existing = [...builtIn, ...mine.map((c) => c.name)];
+  const parents = [...builtIn, ...mine.filter((c) => !c.parent).map((c) => c.name)];
 
   const openRename = (c) => { setRenaming(c); setNewName(c.name); setRenameError(""); };
 
@@ -83,7 +84,7 @@ export default function CategoriesManager() {
           <tbody>
             {mine.map((c) => (
               <tr key={c._id}>
-                <td className="font-medium">{c.name}</td>
+                <td className="font-medium">{c.parent ? `${c.parent} / ` : ""}{c.name}</td>
                 <td className="text-slate-600">{usesText(c.uses || {})}</td>
                 <td className="actions">
                   <IconButton icon={Pencil} label="Rename" onClick={() => openRename(c)} />
@@ -104,7 +105,7 @@ export default function CategoriesManager() {
         ))}
       </div>
 
-      <CategoryModal open={addOpen} type={type} existing={existing} onClose={() => setAddOpen(false)} onCreated={() => load()} />
+      <CategoryModal open={addOpen} type={type} existing={existing} parents={parents} onClose={() => setAddOpen(false)} onCreated={() => load()} />
 
       <Modal open={!!renaming} onClose={() => setRenaming(null)} title="Rename category" size="max-w-sm">
         <form onSubmit={submitRename} className="space-y-3">

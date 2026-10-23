@@ -3,12 +3,14 @@ import ProfileInfo from "../components/ProfileInfo";
 import PreferencesPanel from "../components/PreferencesPanel";
 import CategoriesManager from "../components/CategoriesManager";
 import DataPrivacy from "../components/DataPrivacy";
+import RecentlyDeleted from "./RecentlyDeleted";
 
 const SECTIONS = [
   ["profile", "Profile", "", ProfileInfo],
   ["preferences", "Preferences", "", PreferencesPanel],
   ["categories", "Categories", "", CategoriesManager],
   ["data", "Data & Privacy", "Download your data or delete your account.", DataPrivacy],
+  ["deleted", "Recently Deleted", "Restore records deleted within the last 30 days.", RecentlyDeleted],
 ];
 
 export default function Settings() {
@@ -19,7 +21,9 @@ export default function Settings() {
 
   return (
     <div className="w-full">
-      <h2 className="mb-6 text-2xl font-semibold">Settings</h2>
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold">Settings</h2>
+      </div>
 
       <div className="flex flex-col gap-6 sm:flex-row">
         {/* Phone: a dropdown */}

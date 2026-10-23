@@ -9,6 +9,7 @@ import { startOfToday, startOfThisMonth, addDays } from "../utils/dates.js";
 import { applyAutoSave, reverseAutoSave } from "../utils/autosave.js";
 import { prepareRules, suggestCategory } from "../utils/autoCategory.js";
 import { MOOD_KEYS } from "../utils/moods.js";
+import { archiveDeleted } from "../utils/deletedItems.js";
 
 const router = express.Router();
 router.use(auth);
@@ -63,6 +64,19 @@ async function buildPayload(body, userId) {
     toAccount: toId,
   };
 
+  if (type !== "transfer" && Array.isArray(body.splits) && body.splits.length) {
+    const splits = body.splits.map((part) => ({
+      category: String(part.category || "").trim().slice(0, 60),
+      amount: r2(Number(part.amount)),
+    }));
+    if (splits.some((part) => !part.category || !Number.isFinite(part.amount) || part.amount <= 0))
+      return { error: "Each split needs a category and an amount greater than 0" };
+    if (Math.abs(splits.reduce((sum, part) => sum + part.amount, 0) - data.amount) > 0.01)
+      return { error: "Split amounts must add up to the transaction amount" };
+    data.splits = splits;
+    data.category = "Split transaction";
+  }
+
   if (type === "transfer") {
     if (!accountId || !toId) return { error: "Choose both the account to take from and the account to send to" };
     if (String(accountId) === String(toId)) return { error: "Pick two different accounts" };
@@ -109,8 +123,10 @@ function buildMatch(query, userId) {
 
 // Deleting also undoes automatic savings and fixes the goal total
 async function deleteTx(userId, id) {
-  const tx = await Transaction.findOneAndDelete({ _id: id, user: userId });
+  const tx = await Transaction.findOne({ _id: id, user: userId });
   if (!tx) return null;
+  await archiveDeleted(userId, "transaction", tx);
+  await tx.deleteOne();
   if (tx.type === "income") await reverseAutoSave(userId, tx._id);
   if (tx.goal) {
     const goal = await Goal.findOne({ _id: tx.goal, user: userId });
@@ -290,7 +306,9 @@ router.get("/summary", async (req, res) => {
   ]);
   const byCategory = await Transaction.aggregate([
     { $match: { ...match, type: "expense" } },
-    { $group: { _id: "$category", total: { $sum: "$amount" } } },
+    { $project: { parts: { $cond: [{ $gt: [{ $size: { $ifNull: ["$splits", []] } }, 0] }, "$splits", [{ category: "$category", amount: "$amount" }] ] } } },
+    { $unwind: "$parts" },
+    { $group: { _id: "$parts.category", total: { $sum: "$parts.amount" } } },
   ]);
   const fees = await Transaction.aggregate([
     { $match: { ...match, type: "transfer", fee: { $gt: 0 } } },
@@ -353,6 +371,21 @@ router.put("/:id", async (req, res) => {
     await reverseAutoSave(req.userId, tx._id);
     const autoSaved = tx.type === "income" ? await applyAutoSave(tx) : 0;
     res.json(withAuto(tx, autoSaved));
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.patch("/:id/mood", async (req, res) => {
+  try {
+    if (!MOOD_KEYS.includes(req.body.mood)) return res.status(400).json({ message: "Choose a valid mood." });
+    const tx = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId, type: { $ne: "transfer" } },
+      { mood: req.body.mood },
+      { new: true, runValidators: true }
+    );
+    if (!tx) return res.status(404).json({ message: "Transaction not found" });
+    res.json(tx);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

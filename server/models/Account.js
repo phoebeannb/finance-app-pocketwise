@@ -9,6 +9,7 @@ const accountSchema = new mongoose.Schema({
   provider: { type: String, trim: true, maxlength: 80 },
   balance: { type: Number, default: 0 }, // starting balance
   notes: { type: String, trim: true, maxlength: 200 },
+  color: { type: String, default: "indigo", enum: ["indigo", "blue", "green", "amber", "rose", "slate"] },
 }, { timestamps: true });
 
 export default mongoose.model("Account", accountSchema);

@@ -2,8 +2,10 @@ import express from "express";
 import mongoose from "mongoose";
 import Budget from "../models/Budget.js";
 import Transaction from "../models/Transaction.js";
+import Category from "../models/Category.js";
 import auth from "../middleware/auth.js";
 import { startOfThisMonth } from "../utils/dates.js";
+import { archiveDeleted } from "../utils/deletedItems.js";
 
 const router = express.Router();
 router.use(auth);
@@ -21,12 +23,21 @@ router.get("/", async (req, res) => {
   }
 
   const budgets = await Budget.find({ user: req.userId }).sort({ createdAt: 1 }).lean();
+  const categories = await Category.find({ user: req.userId }).select("name parent").lean();
+  const parentByKey = Object.fromEntries(categories.filter((c) => c.parent).map((c) => [c.name.toLowerCase(), c.parent]));
   const spent = await Transaction.aggregate([
     { $match: { user: new mongoose.Types.ObjectId(req.userId), type: "expense", date: { $gte: from, $lt: to } } },
-    { $group: { _id: { $toLower: { $trim: { input: { $ifNull: ["$category", ""] } } } }, total: { $sum: "$amount" } } },
+    { $project: { parts: { $cond: [{ $gt: [{ $size: { $ifNull: ["$splits", []] } }, 0] }, "$splits", [{ category: "$category", amount: "$amount" }] ] } } },
+    { $unwind: "$parts" },
+    { $group: { _id: { $toLower: { $trim: { input: "$parts.category" } } }, total: { $sum: "$parts.amount" } } },
   ]);
   const map = Object.fromEntries(spent.map((s) => [s._id, s.total]));
-  res.json(budgets.map((b) => ({ ...b, spent: map[b.category.toLowerCase()] || 0 })));
+  const rolled = Object.entries(map).reduce((out, [key, total]) => {
+    const parent = parentByKey[key]?.toLowerCase() || key;
+    out[parent] = (out[parent] || 0) + total;
+    return out;
+  }, {});
+  res.json(budgets.map((b) => ({ ...b, spent: rolled[b.category.toLowerCase()] || 0 })));
 });
 
 router.post("/", async (req, res) => {
@@ -58,8 +69,10 @@ router.put("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
-  const budget = await Budget.findOneAndDelete({ _id: req.params.id, user: req.userId });
+  const budget = await Budget.findOne({ _id: req.params.id, user: req.userId });
   if (!budget) return res.status(404).json({ message: "Not found" });
+  await archiveDeleted(req.userId, "budget", budget);
+  await budget.deleteOne();
   res.json({ message: "Deleted" });
 });
 

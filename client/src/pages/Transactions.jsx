@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Plus, Pencil, Trash2, Search, SlidersHorizontal, Upload, Download, X, ChevronLeft, ChevronRight, Paperclip, ReceiptText,
+  Plus, Pencil, Trash2, Search, SlidersHorizontal, Upload, X, ChevronLeft, ChevronRight, Paperclip, ReceiptText,
 } from "lucide-react";
 import api from "../api/axios";
 import { useQuickAdd } from "../context/QuickAddContext";
@@ -30,6 +30,12 @@ const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const dateInput = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 
 function useDebounced(value, ms = 300) {
   const [v, setV] = useState(value);
@@ -69,7 +75,6 @@ export default function Transactions() {
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(new Set());
-  const [exporting, setExporting] = useState(false);
   const [receipt, setReceipt] = useState(null);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -85,6 +90,20 @@ export default function Transactions() {
 
   const update = (patch) => { setFilters((f) => ({ ...f, ...patch })); setPage(1); };
   const clearAll = () => { setFilters(emptyFilters); setUnsorted(false); setPage(1); };
+  const setPreset = (preset) => {
+    const today = new Date();
+    if (preset === "month") {
+      update({ from: dateInput(new Date(today.getFullYear(), today.getMonth(), 1)), to: dateInput(today) });
+    } else if (preset === "30days") {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 29);
+      update({ from: dateInput(start), to: dateInput(today) });
+    } else if (preset === "uncategorized") {
+      setFilters((f) => ({ ...f, category: "", from: "", to: "", min: "", max: "", tag: "" }));
+      setUnsorted(true);
+      setPage(1);
+    }
+  };
 
   // A new address (for example from the command palette) replaces the filters
   const paramKey = params.toString();
@@ -193,26 +212,6 @@ export default function Transactions() {
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const toggleAll = () => setSelected(allOnPage ? new Set() : new Set(pageIds));
 
-  const exportCsv = async () => {
-    setExporting(true);
-    try {
-      const { data: blob } = await api.get("/transactions/export", { params: { ...queryParams, page: undefined, pageSize: undefined }, responseType: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `pocketwise-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast.success(hasAnyFilter ? "Downloading the transactions that match your filters." : "Downloading all your transactions.");
-    } catch {
-      toast.error("We couldn't prepare the file. Check that the server is running and try again.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
   const viewReceipt = async (t) => {
     setReceipt({ t, image: null });
     try {
@@ -227,12 +226,10 @@ export default function Transactions() {
   return (
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold">Transactions</h2>
+        <div>
+          <h2 className="text-2xl font-semibold">Transactions</h2>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={exportCsv} disabled={exporting}
-            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
-            <Download size={16} aria-hidden="true" /> {exporting ? "Preparing..." : "Export CSV"}
-          </button>
           <button onClick={() => setImportOpen(true)}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
             <Upload size={16} aria-hidden="true" /> Import CSV
@@ -266,6 +263,12 @@ export default function Transactions() {
 
       <div className="mb-4">
         <UnderlineTabs label="Type" value={filters.type} onChange={(type) => update({ type })} options={TYPE_TABS} />
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Quick filters">
+        <span className="text-xs font-medium text-slate-600">Quick filters:</span>
+        <button type="button" onClick={() => setPreset("month")} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">This month</button>
+        <button type="button" onClick={() => setPreset("30days")} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">Last 30 days</button>
+        <button type="button" onClick={() => setPreset("uncategorized")} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${unsorted ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800"}`}>Needs category</button>
       </div>
 
       {showFilters && (

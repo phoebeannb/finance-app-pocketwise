@@ -18,14 +18,18 @@ export default function PreferencesPanel() {
   const dirty =
     form.currency !== prefs.currency ||
     form.dateFormat !== prefs.dateFormat ||
-    (form.defaultAccount || null) !== (prefs.defaultAccount || null);
+    (form.defaultAccount || null) !== (prefs.defaultAccount || null) ||
+    form.reportRange !== prefs.reportRange;
 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
       // After a currency or date change the screen redraws once so every number updates
-      await save({ currency: form.currency, dateFormat: form.dateFormat, defaultAccount: form.defaultAccount || null });
+      await save({
+        currency: form.currency, dateFormat: form.dateFormat,
+        defaultAccount: form.defaultAccount || null, reportRange: Number(form.reportRange),
+      });
     } catch { /* the red message explains what to fix */ } finally {
       setSaving(false);
     }
@@ -57,6 +61,16 @@ export default function PreferencesPanel() {
           <select value={form.defaultAccount || ""} onChange={(e) => setForm({ ...form, defaultAccount: e.target.value || null })} className={inputClass}>
             <option value="">None</option>
             {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
+          </select>
+        </Row>
+      </Block>
+
+      <div className="mt-8" />
+      <Block title="Reports">
+        <Row label="Monthly breakdown" hint="Choose how many months to show by default.">
+          <select value={form.reportRange} onChange={(e) => setForm({ ...form, reportRange: Number(e.target.value) })} className={inputClass}>
+            <option value={6}>6 months</option>
+            <option value={12}>12 months</option>
           </select>
         </Row>
       </Block>

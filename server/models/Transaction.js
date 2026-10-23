@@ -6,6 +6,13 @@ const transactionSchema = new mongoose.Schema({
   amount: { type: Number, required: true, min: 0.01 },
   fee: { type: Number, default: 0, min: 0 },
   category: String,
+  splits: {
+    type: [{
+      category: { type: String, required: true, trim: true, maxlength: 60 },
+      amount: { type: Number, required: true, min: 0.01 },
+    }],
+    default: undefined,
+  },
   description: String,
   notes: { type: String, default: "" },
   tags: { type: [String], default: [] },

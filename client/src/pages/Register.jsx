@@ -24,7 +24,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register(form.name, form.email, form.password);
-      navigate("/");
+      navigate("/setup");
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong. Check your connection and try again.");
     } finally {

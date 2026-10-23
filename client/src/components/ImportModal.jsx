@@ -220,16 +220,16 @@ export default function ImportModal({ open, onClose, onImported }) {
           </button>
 
           <div className="mt-4 text-sm text-slate-600">
-            <p className="font-medium text-slate-800">The template has these columns:</p>
+            <p className="font-medium text-slate-800">Required Columns:</p>
             <ul className="mt-1 space-y-1">
-              <li><b>Date</b> like 2026-10-25</li>
-              <li><b>Type</b>: Income or Expense</li>
-              <li><b>Category</b> such as Food & Dining. Leave it empty and we'll suggest one.</li>
-              <li><b>Description</b>: what it was for</li>
-              <li><b>Account</b>: the exact name of one of your accounts</li>
-              <li><b>Amount</b>: a plain number like 250.00</li>
+              <li><b>Date:</b> YYYY-MM-DD (e.g., 2026-10-25)</li>
+              <li><b>Type:</b> Income or Expense</li>
+              <li><b>Category:</b> e.g., Food & Dining (optional)</li>
+              <li><b>Description:</b> Transaction details</li>
+              <li><b>Account:</b> Must match an existing account</li>
+              <li><b>Amount:</b> Numeric value (e.g., 250.00)</li>
             </ul>
-            <p className="mt-2 text-slate-500">Delete the 4 sample rows before adding your own. Up to {MAX_ROWS} rows at a time.</p>
+            <p className="mt-2 text-slate-500">Remove the sample rows before importing. Maximum 1,000 transactions per import.</p>
           </div>
         </div>
       )}

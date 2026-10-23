@@ -2,6 +2,7 @@ import express from "express";
 import Account from "../models/Account.js";
 import Transaction from "../models/Transaction.js";
 import auth from "../middleware/auth.js";
+import { archiveDeleted } from "../utils/deletedItems.js";
 
 const router = express.Router();
 router.use(auth);
@@ -9,12 +10,13 @@ router.use(auth);
 const LIABILITIES = ["Credit Card", "Loan"];
 const r2 = (n) => Math.round(n * 100) / 100;
 
-const pick = ({ name, type, provider, balance, notes }) => ({
+const pick = ({ name, type, provider, balance, notes, color }) => ({
   name,
   type,
   notes,
   provider: type === "Bank Account" ? provider : "",
   balance: Number(balance) || 0,
+  color: ["indigo", "blue", "green", "amber", "rose", "slate"].includes(color) ? color : "indigo",
 });
 
 router.get("/", async (req, res) => {
@@ -81,6 +83,7 @@ router.delete("/:id", async (req, res) => {
         message: `This account has ${count} transaction${count === 1 ? "" : "s"}. Delete them first so your balances stay correct.`,
       });
 
+    await archiveDeleted(req.userId, "account", account);
     await account.deleteOne();
     res.json({ message: "Deleted" });
   } catch {

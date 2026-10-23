@@ -9,6 +9,8 @@ import Modal from "../components/Modal";
 import ConfirmModal from "../components/ConfirmModal";
 import CategoryModal from "../components/CategoryModal";
 import ValueRating from "../components/ValueRating";
+import BrandLogo from "../components/BrandLogo";
+import BillCalendar from "../components/BillCalendar";
 import Skeleton from "../components/Skeleton";
 import { IconButton, Stat, TableCard, ErrorBar } from "../components/ui";
 
@@ -28,7 +30,14 @@ const daysUntil = (iso) => {
 const when = (n) => (n <= 0 ? "due today" : n === 1 ? "tomorrow" : `in ${n} days`);
 const perMonth = (i) => (i.cadence === "weekly" ? (i.amount * 52) / 12 : i.cadence === "yearly" ? i.amount / 12 : i.amount);
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-const blank = () => ({ type: "expense", name: "", amount: "", category: "", account: "", cadence: "monthly", nextDate: todayYmd() });
+const monthKey = (iso) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+};
+const blank = () => ({
+  type: "expense", name: "", amount: "", category: "", account: "", cadence: "monthly",
+  nextDate: todayYmd(), autoRenew: false, trialEnds: "", reminderDays: 3,
+});
 
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
@@ -42,8 +51,11 @@ export default function Bills() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(blank());
   const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [toDelete, setToDelete] = useState(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [showCalendar, setShowCalendar] = useState(false);
   const { expense, income, reload } = useCategories();
 
   const load = useCallback(async () => {
@@ -66,10 +78,20 @@ export default function Bills() {
   const bills = active.filter((i) => i.type === "expense");
   const monthlyBills = bills.reduce((s, i) => s + perMonth(i), 0);
   const monthlyIncome = active.filter((i) => i.type === "income").reduce((s, i) => s + perMonth(i), 0);
-  const soon = bills.filter((i) => daysUntil(i.nextDate) <= 7);
+  const soon = bills.filter((i) => {
+    const days = daysUntil(i.nextDate);
+    return days >= 0 && days <= (i.reminderDays ?? 3);
+  });
+  const overdue = bills.filter((i) => daysUntil(i.nextDate) < 0);
+  const thisMonth = bills.filter((i) => monthKey(i.nextDate) === monthKey(new Date()));
   const soonTotal = soon.reduce((s, i) => s + i.amount, 0);
+  const thisMonthTotal = thisMonth.reduce((s, i) => s + i.amount, 0);
   const unused = bills.filter((i) => i.valueRating === "unused");
   const unusedMonthly = unused.reduce((s, i) => s + perMonth(i), 0);
+  const calendarItems = active.filter((i) => {
+    const date = new Date(i.nextDate);
+    return date.getFullYear() === calendarMonth.getFullYear() && date.getMonth() === calendarMonth.getMonth();
+  });
 
   const baseCats = form.type === "income" ? income : expense;
   const cats = form.category && !baseCats.some((c) => c.toLowerCase() === form.category.toLowerCase())
@@ -82,6 +104,8 @@ export default function Bills() {
     setForm({
       type: i.type, name: i.name, amount: i.amount, category: i.category || "",
       account: i.account?._id || "", cadence: i.cadence, nextDate: i.nextDate.slice(0, 10),
+      autoRenew: Boolean(i.autoRenew), trialEnds: i.trialEnds ? i.trialEnds.slice(0, 10) : "",
+      reminderDays: i.reminderDays ?? 3,
     });
     setFormError("");
     setOpen(true);
@@ -91,15 +115,23 @@ export default function Bills() {
 
   const save = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setFormError("");
     const payload = { ...form, amount: Number(form.amount), account: form.account || null };
+    if (!form.name.trim()) return setFormError("Enter a name for this recurring payment.");
+    if (!Number.isFinite(payload.amount) || payload.amount <= 0) return setFormError("Enter an amount greater than zero.");
+    if (!form.category) return setFormError("Choose a category.");
+    setSaving(true);
     try {
       if (editing) await api.put(`/recurring/${editing._id}`, payload);
       else await api.post("/recurring", payload);
       setOpen(false);
+      toast.success(editing ? "Bill updated." : "Bill added.");
       load();
     } catch (err) {
       setFormError(err.response?.data?.message || "Something went wrong");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -138,18 +170,34 @@ export default function Bills() {
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Stat label="Monthly Bills" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
-            <Stat label="Weekly Bills" value={formatMoney(soonTotal)} hint={plural(soon.length, "bill")} />
+            <Stat label="Due soon" value={formatMoney(soonTotal)} hint={plural(soon.length, "bill")} />
+            <Stat label="Due this month" value={formatMoney(thisMonthTotal)} hint={plural(thisMonth.length, "bill")} />
             <Stat label="Recurring Income" value={formatMoney(monthlyIncome)} color="text-green-600" />
-            <Stat label="Marked as unused" value={formatMoney(unusedMonthly)}
-              color={unusedMonthly > 0 ? "text-amber-600" : "text-slate-900"}
-             />
           </div>
+
+          {overdue.length > 0 && (
+            <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <b>{plural(overdue.length, "bill")} overdue:</b> {overdue.map((i) => i.name).join(", ")}. Update the due date or use Skip if you already paid it.
+            </div>
+          )}
 
           {unused.length > 0 && (
             <div role="status" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               You marked {plural(unused.length, "bill")} as unused: {unused.map((i) => i.name).join(", ")}. That's{" "}
               <b>{formatMoney(unusedMonthly)} a month</b> ({formatMoney(unusedMonthly * 12)} a year). If you're not using {unused.length === 1 ? "it" : "them"}, consider cancelling.
             </div>
+          )}
+
+          <div className="mb-4">
+            <button type="button" onClick={() => setShowCalendar((value) => !value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {showCalendar ? "Hide bill calendar" : "Show bill calendar"}
+            </button>
+          </div>
+          {showCalendar && (
+            <BillCalendar items={calendarItems} month={calendarMonth}
+              onMonthChange={(offset) => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))}
+              onSelect={openEdit} />
           )}
 
           <TableCard>
@@ -166,7 +214,18 @@ export default function Bills() {
                   return (
                     <tr key={i._id} className={i.active ? "" : "text-slate-400"}>
                       <td>
-                        <div className="font-medium">{i.name}</div>
+                        <div className="flex items-center gap-2">
+                          <BrandLogo name={i.name} label={i.name} size="sm" />
+                          <div className="min-w-0">
+                            <div className="font-medium">{i.name}</div>
+                            {(i.autoRenew || i.trialEnds) && (
+                              <div className="text-xs text-slate-500">
+                                {i.autoRenew ? "Auto-renew" : "Manual renewal"}
+                                {i.trialEnds ? ` · Trial ends ${fmtDate(i.trialEnds)}` : ""}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         {i.category && <div className="text-xs text-slate-500">{i.category}</div>}
                       </td>
                       <td>{i.type === "income" ? "Income" : "Bill"}</td>
@@ -174,7 +233,9 @@ export default function Bills() {
                       <td>{CAD_LABEL[i.cadence]}</td>
                       <td className="whitespace-nowrap">
                         {fmtDate(i.nextDate)}
-                        {i.active && <span className={`ml-1 text-xs ${n <= 3 ? "font-medium text-amber-600" : "text-slate-500"}`}>({when(n)})</span>}
+                        {i.active && <span className={`ml-1 text-xs ${n < 0 ? "font-medium text-red-600" : n <= 3 ? "font-medium text-amber-600" : "text-slate-500"}`}>
+                          ({n < 0 ? "overdue" : when(n)})
+                        </span>}
                       </td>
                       <td>{i.account?.name || "—"}</td>
                       <td>
@@ -266,9 +327,31 @@ export default function Bills() {
               <input name="nextDate" type="date" value={form.nextDate} onChange={handleChange} required className={field} />
             </div>
           </div>
+          {form.type === "expense" && (
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="text-sm font-semibold text-slate-800">Subscription options</div>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input name="autoRenew" type="checkbox" checked={form.autoRenew}
+                  onChange={(e) => setForm({ ...form, autoRenew: e.target.checked })} />
+                Renews automatically
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Free trial ends (optional)</label>
+                  <input name="trialEnds" type="date" value={form.trialEnds} onChange={handleChange} className={field} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Remind me before due</label>
+                  <select name="reminderDays" value={form.reminderDays} onChange={handleChange} className={field}>
+                    {[0, 1, 3, 7, 14].map((days) => <option key={days} value={days}>{days === 0 ? "On the due date" : `${days} days before`}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
-          <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
-            {editing ? "Save Changes" : "Add bill"}
+          <button type="submit" disabled={saving} className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+            {saving ? "Saving..." : editing ? "Save Changes" : "Add bill"}
           </button>
         </form>
       </Modal>
@@ -286,7 +369,7 @@ export default function Bills() {
         title="Delete bill"
         message={`Are you sure you want to delete "${toDelete?.name}"? Transactions it already added will stay in your history.`}
         onClose={() => setToDelete(null)}
-        onConfirm={async () => { await api.delete(`/recurring/${toDelete._id}`); load(); }}
+        onConfirm={async () => { await api.delete(`/recurring/${toDelete._id}`); toast.success("Bill deleted."); load(); }}
       />
     </div>
   );

@@ -73,6 +73,7 @@ const prefsOf = async (user) => {
     currency: user.preferences?.currency || "PHP",
     dateFormat: user.preferences?.dateFormat || "medium",
     defaultAccount: defaultAccount ? String(defaultAccount) : null,
+    reportRange: user.preferences?.reportRange === 12 ? 12 : 6,
   };
 };
 
@@ -85,8 +86,10 @@ router.get("/preferences", async (req, res) => {
 router.put("/preferences", async (req, res) => {
   try {
     const { currency, dateFormat } = req.body;
+    const reportRange = Number(req.body.reportRange);
     if (!CURRENCIES.includes(currency)) return res.status(400).json({ message: "Choose a supported currency" });
     if (!DATE_FORMATS.includes(dateFormat)) return res.status(400).json({ message: "Choose a supported date format" });
+    if (![6, 12].includes(reportRange)) return res.status(400).json({ message: "Choose 6 or 12 months for reports" });
 
     let defaultAccount = null;
     if (req.body.defaultAccount) {
@@ -98,7 +101,7 @@ router.put("/preferences", async (req, res) => {
 
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { $set: { "preferences.currency": currency, "preferences.dateFormat": dateFormat, "preferences.defaultAccount": defaultAccount } },
+      { $set: { "preferences.currency": currency, "preferences.dateFormat": dateFormat, "preferences.defaultAccount": defaultAccount, "preferences.reportRange": reportRange } },
       { new: true }
     );
     if (!user) return res.status(404).json({ message: "Not found" });

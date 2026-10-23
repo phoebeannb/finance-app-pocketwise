@@ -4,7 +4,7 @@ import { useAuth } from "./AuthContext";
 import { setCurrency } from "../utils/format";
 import { setDateFormat } from "../utils/datetime";
 
-const DEFAULTS = { currency: "PHP", dateFormat: "medium", defaultAccount: null };
+const DEFAULTS = { currency: "PHP", dateFormat: "medium", defaultAccount: null, reportRange: 6 };
 const KEY = "pw_prefs";
 
 const readStored = () => {

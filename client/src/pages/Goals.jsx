@@ -125,7 +125,9 @@ export default function Goals() {
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">Goals</h2>
+          <div>
+            <h2 className="text-2xl font-semibold">Goals</h2>
+          </div>
         </div>
         <button onClick={openNew}
           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
