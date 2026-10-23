@@ -9,9 +9,11 @@ import { useAuth } from "../context/AuthContext";
 import { QuickAddContext } from "../context/QuickAddContext";
 import TransactionModal from "./TransactionModal";
 import QuickAdd from "./QuickAdd";
+import BillQuickAdd from "./BillQuickAdd";
 import Modal from "./Modal";
 import Shortcuts from "./Shortcuts";
 import ConfirmModal from "./ConfirmModal";
+import NotificationCenter from "./NotificationCenter";
 
 const OVERVIEW = { to: "/", label: "Overview", icon: LayoutDashboard, end: true };
 const ACCOUNTS = { to: "/accounts", label: "Accounts", icon: Landmark };
@@ -169,6 +171,7 @@ export default function Layout() {
   const location = useLocation();
   const [wide, setWide] = useState(false); // tablet rail: show labels or not
   const [quickOpen, setQuickOpen] = useState(false);
+  const [billQuickOpen, setBillQuickOpen] = useState(false);
   const [quickInitial, setQuickInitial] = useState(null);
   const [fullOpen, setFullOpen] = useState(false);
   const [fullInitial, setFullInitial] = useState(null);
@@ -181,6 +184,7 @@ export default function Layout() {
   const saved = useCallback(() => setRefresh((k) => k + 1), []);
   const ctx = useMemo(() => ({
     open: (initial) => { setQuickInitial(initial || null); setQuickOpen(true); },
+    openBill: () => setBillQuickOpen(true),
     refresh: saved,
   }), [saved]);
   const openFull = (initial) => { setFullInitial(initial || null); setQuickOpen(false); setFullOpen(true); };
@@ -206,12 +210,12 @@ export default function Layout() {
           Skip to main content
         </a>
         {/* Desktop: full side menu */}
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-zinc-950 text-white lg:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-gradient-to-b from-zinc-950 to-zinc-900 text-white shadow-xl lg:block">
           <SideNav labels badges={badges} user={user} onLogout={requestLogout} />
         </aside>
 
         {/* Tablet: icon rail (tap the arrow to show names) */}
-        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-zinc-950 text-white sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-gradient-to-b from-zinc-950 to-zinc-900 text-white shadow-xl sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
           <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} user={user} onLogout={requestLogout} />
         </aside>
 
@@ -223,7 +227,7 @@ export default function Layout() {
         </main>
 
         {/* Phone: bottom tab bar */}
-        <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white sm:hidden">
+        <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 shadow-[0_-4px_18px_rgb(15_23_42_/_0.08)] backdrop-blur sm:hidden">
           <div className="mx-auto flex max-w-md items-end justify-around px-2">
             <TabLink item={OVERVIEW} badges={badges} />
             <TabLink item={TRANSACTIONS} badges={badges} />
@@ -248,7 +252,9 @@ export default function Layout() {
         </nav>
 
         <Shortcuts onAdd={() => setQuickOpen(true)} onLogout={requestLogout} />
+        {location.pathname === "/" && <NotificationCenter />}
         <QuickAdd open={quickOpen} initial={quickInitial} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
+        <BillQuickAdd open={billQuickOpen} onClose={() => setBillQuickOpen(false)} onSaved={saved} />
         <TransactionModal open={fullOpen} initial={fullInitial} onClose={() => setFullOpen(false)} onSaved={saved} />
 
         <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="More">

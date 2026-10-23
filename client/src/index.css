@@ -54,10 +54,25 @@ html, body, #root {
 
 body {
   display: block;
-  background: #f7f8fa;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(224 231 255 / 0.36), transparent 26rem),
+    #f5f7fb;
   color: #1b1f2a;
   font-variant-numeric: tabular-nums; /* digits line up in columns */
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #c7d2fe;
+  color: #312e81;
+}
+
+button, a {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+button:active:not(:disabled), a:active {
+  transform: translateY(1px);
 }
 
 * {

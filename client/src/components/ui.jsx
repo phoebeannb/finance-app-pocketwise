@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
 
 // The look of a card, shared everywhere
-export const card = "rounded-xl border border-slate-200 bg-white shadow-sm";
+export const card = "rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_10px_rgb(15_23_42_/_0.05)]";
 
 export function IconButton({ icon: Icon, label, onClick, danger = false, disabled = false }) {
   return (

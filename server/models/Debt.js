@@ -9,6 +9,11 @@ const debtSchema = new mongoose.Schema({
   description: { type: String, required: true, trim: true, maxlength: 160 },
   total: { type: Number, required: true, min: 0.01 },
   amountOwed: { type: Number, required: true, min: 0 },
+  participants: [{
+    member: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    name: { type: String, required: true, trim: true, maxlength: 80 },
+    share: { type: Number, required: true, min: 0.01 },
+  }],
   dueDate: { type: Date, default: null },
   date: { type: Date, default: Date.now },
   status: { type: String, enum: ["open", "settled"], default: "open" },

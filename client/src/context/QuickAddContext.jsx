@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
 
-// open() shows the Add transaction form. refresh() reloads the page you're on.
-export const QuickAddContext = createContext({ open: () => {}, refresh: () => {} });
+// open() shows the Add transaction form. openBill() shows the essential bill form.
+export const QuickAddContext = createContext({ open: () => {}, openBill: () => {}, refresh: () => {} });
 export const useQuickAdd = () => useContext(QuickAddContext);
