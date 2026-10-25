@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip } from "lucide-react";
 import api from "../api/axios";
 import { resizeToDataUrl } from "../utils/imageResize";
@@ -7,8 +7,9 @@ import { toast } from "../utils/toast";
 const btn = "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50";
 
 // state: { status: "none" | "existing" | "new" | "removed", data? }
-export default function ReceiptField({ txId, state, onChange }) {
+export default function ReceiptField({ txId, state, onChange, autoFocus = false }) {
   const inputRef = useRef(null);
+  const attachButtonRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState(null); // photo already saved on this transaction, once opened
 
@@ -41,11 +42,15 @@ export default function ReceiptField({ txId, state, onChange }) {
 
   const picture = state.status === "new" ? state.data : state.status === "existing" ? shown : null;
 
+  useEffect(() => {
+    if (autoFocus && (state.status === "none" || state.status === "removed")) attachButtonRef.current?.focus();
+  }, [autoFocus, state.status]);
+
   return (
     <div>
       <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={pick} className="hidden" />
       {(state.status === "none" || state.status === "removed") && (
-        <button type="button" onClick={() => inputRef.current.click()} disabled={busy} className={`${btn} inline-flex items-center gap-2`}>
+        <button ref={attachButtonRef} type="button" onClick={() => inputRef.current.click()} disabled={busy} className={`${btn} inline-flex items-center gap-2`}>
           <Paperclip size={16} aria-hidden="true" /> {busy ? "Preparing photo..." : "Attach a receipt photo"}
         </button>
       )}
