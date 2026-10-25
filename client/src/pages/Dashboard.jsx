@@ -220,6 +220,8 @@ export default function Dashboard() {
             <>
               <Link to="/accounts" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">1. Add an account</Link>
               <button onClick={openAdd} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">2. Log your first transaction</button>
+              <Link to="/goals" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">3. Create a goal</Link>
+              <button onClick={openAdd} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">4. Record an expense</button>
               <Link to="/setup" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Open setup guide</Link>
               <button onClick={loadDemo} disabled={demoBusy} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
                 {demoBusy ? "Loading..." : "Or look around with demo data"}

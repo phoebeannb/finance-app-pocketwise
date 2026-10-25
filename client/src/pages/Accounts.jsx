@@ -40,6 +40,7 @@ const field =
 
 export default function Accounts() {
   const [items, setItems] = useState(null);
+  const [goals, setGoals] = useState([]);
   const [error, setError] = useState("");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -53,8 +54,8 @@ export default function Accounts() {
   const [filter, setFilter] = useState("all");
 
   const load = () =>
-    api.get("/accounts")
-      .then(({ data }) => { setItems(data); setError(""); })
+    Promise.all([api.get("/accounts"), api.get("/goals").catch(() => ({ data: [] }))])
+      .then(([accountsRes, goalsRes]) => { setItems(accountsRes.data); setGoals(goalsRes.data); setError(""); })
       .catch((err) => setError(err.response ? "Could not load accounts." : "Can't reach the server. Make sure it's running, then try again."));
   useEffect(() => { load(); }, []);
 
@@ -98,6 +99,8 @@ export default function Accounts() {
   const assets = list.filter((a) => !LIABILITIES.includes(a.type)).reduce((s, a) => s + a.currentBalance, 0);
   const liabilities = list.filter((a) => LIABILITIES.includes(a.type)).reduce((s, a) => s + a.currentBalance, 0);
   const netWorth = assets - liabilities;
+  const availableCash = list.filter((a) => ["Bank Account", "Other"].includes(a.type)).reduce((s, a) => s + a.currentBalance, 0);
+  const savedInGoals = goals.reduce((s, goal) => s + (goal.saved || 0), 0);
   const isLiability = LIABILITIES.includes(form.type);
 
   return (
@@ -114,10 +117,11 @@ export default function Accounts() {
 
       {error && <ErrorBar message={error} onRetry={load} />}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat label="Total Assets" value={formatMoney(assets)} color="text-green-700" />
-        <Stat label="Total Liabilities" value={formatMoney(liabilities)} color="text-red-700" />
-        <Stat label="Net Worth" value={formatMoney(netWorth)} color={netWorth < 0 ? "text-red-700" : "text-slate-900"} />
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Total available cash" value={formatMoney(availableCash)} color={availableCash < 0 ? "text-red-700" : "text-green-700"} />
+        <Stat label="Total saved in goals" value={formatMoney(savedInGoals)} color="text-green-700" />
+        <Stat label="Total owed" value={formatMoney(liabilities)} color="text-red-700" />
+        <Stat label="Net worth" value={formatMoney(netWorth)} color={netWorth < 0 ? "text-red-700" : "text-slate-900"} />
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filter accounts">

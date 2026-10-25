@@ -86,6 +86,22 @@ export async function validateManualSave(income, goalId, amount) {
   const goal = await Goal.findOne({ _id: goalId, user: income.user });
   if (!goal) return "That savings goal wasn't found";
   if (portion > r2(goal.target - goal.saved) + 0.005) return "That contribution would exceed the goal target";
+  const account = await Account.findOne({ _id: income.account, user: income.user }).select("balance type").lean();
+  if (!account) return "That account wasn't found";
+  const accountTransactions = await Transaction.find({
+    user: income.user,
+    $or: [{ account: income.account }, { toAccount: income.account }],
+  }).select("type amount fee account toAccount").lean();
+  let current = account.balance;
+  for (const tx of accountTransactions) {
+    if (tx.type === "income") current += tx.amount;
+    else if (tx.type === "expense") current -= tx.amount;
+    else if (tx.type === "transfer") {
+      if (String(tx.account) === String(income.account)) current -= tx.amount + (tx.fee || 0);
+      if (String(tx.toAccount) === String(income.account)) current += tx.amount;
+    }
+  }
+  if (current + income.amount - portion < -0.005) return "This contribution would make the account balance negative";
   return null;
 }
 

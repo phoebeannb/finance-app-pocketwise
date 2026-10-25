@@ -202,8 +202,16 @@ export default function Goals() {
             <input id="g-target" type="number" min="1" step="0.01" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} required className={field} />
           </div>
           <div>
-            <label htmlFor="g-auto" className="mb-1 block text-sm font-medium text-slate-700">Auto-save (% of every income, optional)</label>
-            <input id="g-auto" type="number" min="0" max="100" step="0.5" value={form.autoPercent} onChange={(e) => setForm({ ...form, autoPercent: e.target.value })} className={field} />
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={Number(form.autoPercent) > 0} onChange={(e) => setForm({ ...form, autoPercent: e.target.checked ? "10" : "" })} className="h-4 w-4 accent-indigo-600" />
+              Automatically save part of every income
+            </label>
+            {Number(form.autoPercent) > 0 && (
+              <div className="mt-2">
+                <label htmlFor="g-auto" className="mb-1 block text-xs font-medium text-slate-600">Percentage</label>
+                <input id="g-auto" type="number" min="0.5" max="100" step="0.5" value={form.autoPercent} onChange={(e) => setForm({ ...form, autoPercent: e.target.value })} className={field} />
+              </div>
+            )}
             <p className="mt-1 text-xs text-slate-600">
               {Number(form.autoPercent) > 0
                 ? `On a ${formatMoney(10000)} income, ${formatMoney((10000 * Number(form.autoPercent)) / 100)} moves into this goal. `

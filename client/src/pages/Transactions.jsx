@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Plus, Pencil, Trash2, Search, SlidersHorizontal, Upload, X, ChevronLeft, ChevronRight, Paperclip, ReceiptText,
+  Plus, Pencil, Trash2, Copy, PiggyBank, Search, SlidersHorizontal, Upload, X, ChevronLeft, ChevronRight, Paperclip, ReceiptText,
 } from "lucide-react";
 import api from "../api/axios";
 import { useQuickAdd } from "../context/QuickAddContext";
 import { formatMoney } from "../utils/format";
 import { fmtDate, fmtTime, relativeDay } from "../utils/datetime";
+import { monthLabel, monthNow } from "../utils/months";
 import { isSavings, txTitle } from "../utils/txDisplay";
 import { txAccount, txNote, hasNote, txSign, txColor } from "../utils/txTable";
 import { moodOf } from "../utils/moods";
@@ -79,11 +80,11 @@ export default function Transactions() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [duplicateInitial, setDuplicateInitial] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
 
   const { expense, income } = useCategories();
   const allCats = useMemo(() => [...new Set([...expense, ...income])].sort((a, b) => a.localeCompare(b)), [expense, income]);
-  const earned = data ? Object.values(data.daily || {}).find((day) => day.income > 0)?.income || 0 : 0;
 
   const dq = useDebounced(filters.q);
   const dmin = useDebounced(filters.min);
@@ -163,6 +164,10 @@ export default function Transactions() {
   // What is the list showing right now? Each chip can be removed.
   const accountName = accounts.find((a) => a._id === filters.account)?.name;
   const day = (ymd) => fmtDate(`${ymd}T00:00:00.000Z`);
+  const periodLabel = filters.from || filters.to
+    ? `${filters.from ? day(filters.from) : "Start"} to ${filters.to ? day(filters.to) : "Today"}`
+    : "All transactions";
+  const cardsPeriodLabel = filters.from || filters.to ? periodLabel : monthLabel(monthNow());
   const chips = [
     unsorted && { key: "inbox", label: "No category yet", clear: () => { setUnsorted(false); setPage(1); } },
     filters.type !== "all" && { key: "type", label: cap(filters.type), clear: () => update({ type: "all" }) },
@@ -177,7 +182,22 @@ export default function Transactions() {
   ].filter(Boolean);
 
   const reload = () => load();
-  const openEdit = (t) => { setEditing(t); setModalOpen(true); };
+  const openEdit = (t) => { setDuplicateInitial(null); setEditing(t); setModalOpen(true); };
+  const duplicate = (t) => {
+    setEditing(null);
+    setModalOpen(true);
+    setDuplicateInitial({
+      type: t.type,
+      amount: String(t.amount),
+      category: t.category || "",
+      description: t.description || "",
+      notes: t.notes || "",
+      tags: t.tags || [],
+      mood: t.mood || "",
+      account: t.account?._id || "",
+      toAccount: t.toAccount?._id || "",
+    });
+  };
 
   // Deleting: it disappears now, and is really deleted after 5 seconds unless you press Undo
   const removeOne = (t) =>
@@ -245,7 +265,9 @@ export default function Transactions() {
       {error && <ErrorBar message={error} onRetry={load} />}
 
       {data && data.total > 0 && (
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="mb-4" aria-label="Transaction summary">
+          <p className="mb-2 text-sm font-medium text-slate-700">{cardsPeriodLabel}</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className={`${card} p-5`}>
             <div className="text-sm text-slate-600">Income</div>
             <div className="mt-2 text-3xl font-semibold text-green-700">{formatMoney(data.totals.income)}</div>
@@ -255,14 +277,18 @@ export default function Transactions() {
             <div className="mt-2 text-3xl font-semibold text-red-700">{formatMoney(data.totals.expenses)}</div>
           </div>
           <div className={`${card} p-5`}>
-            <div className="text-sm text-slate-600">Earned</div>
-            <div className="mt-2 text-3xl font-semibold text-green-700">{formatMoney(earned)}</div>
+            <div className="text-sm text-slate-600">Remaining</div>
+            <div className={`mt-2 text-3xl font-semibold ${data.totals.income - data.totals.expenses < 0 ? "text-red-700" : "text-green-700"}`}>
+              {formatMoney(data.totals.income - data.totals.expenses)}
+            </div>
+          </div>
           </div>
         </div>
       )}
 
+      <p className="mb-2 text-sm font-medium text-slate-700">{periodLabel}</p>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-60 flex-1">
+        <div className="relative min-w-0 flex-1">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={filters.q} onChange={(e) => update({ q: e.target.value })} placeholder="Search description, category, notes or tags"
             aria-label="Search transactions"
@@ -396,20 +422,11 @@ export default function Transactions() {
                 {rel === full ? full : <>{rel} <span className="font-normal text-slate-600">· {full}</span></>}
               </h3>
               {totals && (totals.expenses > 0 || totals.income > 0) && (
-                <div className="mt-2 grid w-full grid-cols-2 gap-2 sm:mt-0 sm:w-auto sm:min-w-[15rem]">
-                  {totals.expenses > 0 && (
-                    <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-right">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-red-800">Expenses</div>
-                      <div className="text-sm font-bold text-red-700">{formatMoney(totals.expenses)}</div>
-                    </div>
-                  )}
-                  {totals.income > 0 && (
-                    <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-right">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-green-800">Earned</div>
-                      <div className="text-sm font-bold text-green-700">{formatMoney(totals.income)}</div>
-                    </div>
-                  )}
-                </div>
+                <span className="text-sm text-slate-600">
+                  {totals.expenses > 0 && <>Spent <b className="text-red-700">{formatMoney(totals.expenses)}</b></>}
+                  {totals.expenses > 0 && totals.income > 0 && " · "}
+                  {totals.income > 0 && <>Earned <b className="text-green-700">{formatMoney(totals.income)}</b></>}
+                </span>
               )}
             </div>
 
@@ -443,9 +460,12 @@ export default function Transactions() {
                       )}
                       {t.notes && <div className="mt-0.5 truncate text-xs text-slate-600" title={t.notes}>{t.notes}</div>}
                     </div>
-                    <div className={`ml-auto text-right text-lg font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</div>
+                    <div className={`ml-auto shrink-0 text-right text-lg font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</div>
                     <div className="flex w-full justify-end gap-1 sm:w-auto">
                       {!isSavings(t) && <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(t)} />}
+                      {!isSavings(t) && <IconButton icon={Copy} label="Duplicate" onClick={() => duplicate(t)} />}
+                      {!t.hasReceipt && !isSavings(t) && <IconButton icon={Paperclip} label="Add receipt" onClick={() => openEdit(t)} />}
+                      {t.type === "income" && !isSavings(t) && <IconButton icon={PiggyBank} label="Move to a goal" onClick={() => openEdit(t)} />}
                       <IconButton icon={Trash2} label="Delete" danger onClick={() => removeOne(t)} />
                     </div>
                   </li>
@@ -470,7 +490,7 @@ export default function Transactions() {
         </div>
       )}
 
-      <TransactionModal open={modalOpen} editing={editing} onClose={() => setModalOpen(false)} onSaved={reload} />
+      <TransactionModal open={modalOpen} initial={duplicateInitial} editing={editing} onClose={() => setModalOpen(false)} onSaved={reload} />
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onImported={reload} />
 
       <Modal open={!!receipt} onClose={() => setReceipt(null)} title="Receipt photo" size="max-w-md">

@@ -149,6 +149,9 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
   const accountLabel = (a) => `${a.name} · ${formatMoney(a.currentBalance)}`;
   const totalOut = Number(form.amount || 0) + (form.hasFee ? Number(form.fee || 0) : 0);
   const splitTotal = splits.reduce((sum, part) => sum + Number(part.amount || 0), 0);
+  const selectedGoal = goals.find((goal) => goal._id === form.goalId);
+  const selectedAccount = accounts.find((account) => account._id === form.account);
+  const goalAmount = Number(form.goalAmount || 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -260,7 +263,13 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
                     <div className="mt-2">
                       <label htmlFor="tx-goal-amount" className="mb-1 block text-xs font-medium text-slate-600">Amount from this income</label>
                       <input id="tx-goal-amount" name="goalAmount" type="number" min="0.01" step="0.01" placeholder="0.00" value={form.goalAmount} onChange={handleChange} className={field} />
-                      <p className="mt-1 text-xs text-slate-600">This amount is deducted from the account balance and added to the goal.</p>
+                      {selectedGoal && selectedAccount && goalAmount > 0 && (
+                        <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-sm text-indigo-900">
+                          <p>{formatMoney(goalAmount)} will be added to {selectedGoal.name}.</p>
+                          <p className="mt-1">Goal remaining after saving: <b>{formatMoney(Math.max(0, selectedGoal.target - selectedGoal.saved - goalAmount))}</b></p>
+                          <p className="mt-1">Bank balance after saving: <b>{formatMoney(selectedAccount.currentBalance + Number(form.amount || 0) - goalAmount)}</b></p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
