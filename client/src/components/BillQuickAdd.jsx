@@ -56,7 +56,7 @@ export default function BillQuickAdd({ open, onClose, onSaved }) {
         <label className="block text-sm font-medium">Next due date<input name="nextDate" type="date" value={form.nextDate} onChange={update} className={field} required /></label>
         <label className="block text-sm font-medium">Pay from (optional)<select name="account" value={form.account} onChange={update} className={field}><option value="">Choose account</option>{accounts.map((account) => <option key={account._id} value={account._id}>{account.name}</option>)}</select></label>
       </div>
-      <button type="submit" disabled={saving} className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{saving ? "Saving..." : "Add bill"}</button>
+      <button type="submit" disabled={saving} className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{saving ? "Saving..." : "Add Bill"}</button>
     </form>
   </Modal>;
 }
