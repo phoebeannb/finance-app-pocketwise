@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
 
 // The look of a card, shared everywhere
-export const card = "rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_10px_rgb(15_23_42_/_0.05)]";
+export const card = "modern-card rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_10px_rgb(15_23_42_/_0.05)]";
 
 export function IconButton({ icon: Icon, label, onClick, danger = false, disabled = false }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={label}
-      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-slate-600 disabled:opacity-40 sm:min-h-8 sm:min-w-8 sm:px-1.5 ${danger ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-slate-100 hover:text-slate-900"}`}>
+      className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-slate-600 disabled:opacity-40 sm:min-h-8 sm:min-w-8 sm:px-1.5 ${danger ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-slate-100 hover:text-slate-900"}`}>
       <Icon size={16} aria-hidden="true" />
       <span className="text-sm sm:sr-only">{label}</span>
     </button>
@@ -60,7 +60,7 @@ export function Empty({ icon: Icon, title, children, action }) {
   return (
     <div className={`${card} flex flex-col items-center px-6 py-10 text-center`}>
       {Icon && (
-        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700 shadow-sm">
           <Icon size={24} aria-hidden="true" />
         </span>
       )}

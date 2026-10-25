@@ -210,16 +210,16 @@ export default function Layout() {
           Skip to main content
         </a>
         {/* Desktop: full side menu */}
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-gradient-to-b from-zinc-950 to-zinc-900 text-white shadow-xl lg:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-gradient-to-b from-slate-950 to-slate-900 text-white shadow-xl lg:block">
           <SideNav labels badges={badges} user={user} onLogout={requestLogout} />
         </aside>
 
         {/* Tablet: icon rail (tap the arrow to show names) */}
-        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-gradient-to-b from-zinc-950 to-zinc-900 text-white shadow-xl sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-gradient-to-b from-slate-950 to-slate-900 text-white shadow-xl sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
           <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} user={user} onLogout={requestLogout} />
         </aside>
 
-        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 p-4 pb-28 outline-none sm:p-6 sm:pb-8 lg:p-8">
+        <main id="main-content" tabIndex={-1} className="app-main min-w-0 flex-1 p-4 pb-28 outline-none sm:p-6 sm:pb-8 lg:p-8">
           {/* Changing the key reloads the page you're on, so new data shows up after saving */}
           <div key={refresh}>
             <Outlet />
