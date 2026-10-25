@@ -64,11 +64,30 @@ body {
 
 select {
   appearance: none;
+  min-height: 2.75rem;
   background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%);
   background-position: calc(100% - 1rem) 50%, calc(100% - 0.7rem) 50%;
   background-repeat: no-repeat;
   background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
   padding-right: 2.25rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+select:hover {
+  border-color: #94a3b8;
+  background-color: #f8fafc;
+}
+
+select:focus {
+  border-color: var(--color-indigo-500);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-indigo-500) 14%, transparent);
+  outline: none;
+}
+
+option {
+  background: #fff;
+  color: #1e293b;
 }
 
 [data-accent="emerald"] { --color-indigo-500: #10b981; --color-indigo-600: #059669; --color-indigo-700: #047857; }
@@ -93,6 +112,7 @@ select {
 [data-theme="dark"] .border-slate-200, [data-theme="dark"] .border-slate-300 { border-color: #475569; }
 [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background-color: #1f2937; color: #f8fafc; border-color: #475569; }
 [data-theme="dark"] select { color-scheme: dark; }
+[data-theme="dark"] option { background: #1f2937; color: #f8fafc; }
 [data-theme="dark"] .shadow-sm, [data-theme="dark"] .shadow-md, [data-theme="dark"] .shadow-lg { --tw-shadow-color: rgb(0 0 0 / 0.35); }
 [data-theme="dark"] .divide-slate-100 > :not(:last-child) { border-color: #334155; }
 

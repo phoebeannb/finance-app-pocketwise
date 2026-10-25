@@ -3,15 +3,17 @@ import { Paperclip } from "lucide-react";
 import api from "../api/axios";
 import { resizeToDataUrl } from "../utils/imageResize";
 import { toast } from "../utils/toast";
+import { scanReceipt } from "../utils/receiptOcr";
 
 const btn = "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50";
 
 // state: { status: "none" | "existing" | "new" | "removed", data? }
-export default function ReceiptField({ txId, state, onChange, autoFocus = false }) {
+export default function ReceiptField({ txId, state, onChange, autoFocus = false, onScan }) {
   const inputRef = useRef(null);
   const attachButtonRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState(null); // photo already saved on this transaction, once opened
+  const [scanning, setScanning] = useState(false);
 
   const pick = async (e) => {
     const file = e.target.files[0];
@@ -40,6 +42,20 @@ export default function ReceiptField({ txId, state, onChange, autoFocus = false 
     }
   };
 
+  const scan = async () => {
+    const image = state.status === "new" ? state.data : shown;
+    if (!image || !onScan) return;
+    setScanning(true);
+    try {
+      onScan(await scanReceipt(image, (progress) => setBusy(progress < 1)));
+    } catch {
+      toast.error("We couldn't read that receipt. You can still enter the details manually.");
+    } finally {
+      setScanning(false);
+      setBusy(false);
+    }
+  };
+
   const picture = state.status === "new" ? state.data : state.status === "existing" ? shown : null;
 
   useEffect(() => {
@@ -62,6 +78,7 @@ export default function ReceiptField({ txId, state, onChange, autoFocus = false 
             <p className="text-sm text-slate-700">{state.status === "new" ? "Photo ready. It's saved when you save." : "A receipt photo is attached."}</p>
             <div className="flex flex-wrap gap-2">
               {state.status === "existing" && !shown && <button type="button" onClick={openExisting} disabled={busy} className={btn}>{busy ? "Loading..." : "View"}</button>}
+              {onScan && (state.status === "new" || shown) && <button type="button" onClick={scan} disabled={busy || scanning} className={btn}>{scanning ? "Scanning..." : "Scan details"}</button>}
               <button type="button" onClick={() => inputRef.current.click()} disabled={busy} className={btn}>Replace</button>
               <button type="button" onClick={() => { onChange({ status: state.status === "new" && txId ? "existing" : "removed" }); setShown(null); }}
                 className={`${btn} text-red-700`}>Remove</button>

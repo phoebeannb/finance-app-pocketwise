@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import crypto from "crypto";
 import { validatePassword } from "../utils/passwordPolicy.js";
+import { sendPasswordResetEmail } from "../utils/mailer.js";
 
 const router = express.Router();
 const makeToken = (id) =>
@@ -11,9 +12,13 @@ const makeToken = (id) =>
 
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = req.body.email?.trim().toLowerCase();
     if (!name || !email || !password)
       return res.status(400).json({ message: "All fields are required" });
+    const problems = validatePassword(password, { email, name });
+    if (problems.length)
+      return res.status(400).json({ message: `Password needs: ${problems.join(", ")}` });
 
     if (await User.findOne({ email }))
       return res.status(400).json({ message: "Email already in use" });
@@ -24,9 +29,6 @@ router.post("/register", async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-    const problems = validatePassword(password, { email, name });
-    if (problems.length)
-      return res.status(400).json({ message: `Password needs: ${problems.join(", ")}` });
 });
 
 router.post("/login", async (req, res) => {
@@ -45,7 +47,7 @@ router.post("/login", async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email: email?.toLowerCase() });
+    const user = await User.findOne({ email: email?.trim().toLowerCase() });
 
     if (user) {
       const token = crypto.randomBytes(32).toString("hex");
@@ -54,7 +56,7 @@ router.post("/forgot-password", async (req, res) => {
       await user.save();
 
       const link = `${process.env.CLIENT_URL}/reset-password/${token}`;
-      console.log("PASSWORD RESET LINK:", link);
+      await sendPasswordResetEmail({ to: user.email, name: user.name, link });
     }
 
     // Same answer whether or not the email exists, so nobody can probe for accounts

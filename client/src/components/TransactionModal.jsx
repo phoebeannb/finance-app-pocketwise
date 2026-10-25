@@ -158,6 +158,11 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
   const selectedGoal = goals.find((goal) => goal._id === form.goalId);
   const selectedAccount = accounts.find((account) => account._id === form.account);
   const goalAmount = Number(form.goalAmount || 0);
+  const applyReceiptScan = (data) => setForm((current) => ({
+    ...current,
+    amount: data.amount ? String(data.amount) : current.amount,
+    description: data.description && !current.description ? data.description : current.description,
+  }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -382,7 +387,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
           </Field>
 
           <Field label="Receipt photo (optional)">
-            <ReceiptField txId={editing?._id} state={receipt} onChange={setReceipt} autoFocus={focusReceipt} />
+            <ReceiptField txId={editing?._id} state={receipt} onChange={setReceipt} autoFocus={focusReceipt} onScan={applyReceiptScan} />
           </Field>
 
           <Field label="Date & time" htmlFor="tx-date">

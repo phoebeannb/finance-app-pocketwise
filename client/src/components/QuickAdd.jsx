@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Check } from "lucide-react";
 import api from "../api/axios";
 import useCategories from "../hooks/useCategories";
 import { usePrefs } from "../context/PreferencesContext";
@@ -33,6 +34,10 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const [hint, setHint] = useState("");
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const applyReceiptScan = (data) => {
+    if (data.amount) setAmount(String(data.amount));
+    if (data.description && !note) setNote(data.description);
+  };
   const { expense, income, reload } = useCategories();
   const { prefs } = usePrefs();
   const defaultAccount = prefs.defaultAccount;
@@ -76,6 +81,11 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const pickType = (t) => { setType(t); setCategory(""); setHint(""); };
 
   const all = type === "income" ? income : expense;
+  const typeDetails = {
+    income: { hint: "Money coming in", icon: ArrowDownLeft, color: "text-emerald-600", selected: "border-emerald-200 bg-emerald-50" },
+    expense: { hint: "Money going out", icon: ArrowUpRight, color: "text-rose-600", selected: "border-rose-200 bg-rose-50" },
+    transfer: { hint: "Move money between accounts", icon: ArrowLeftRight, color: "text-indigo-600", selected: "border-indigo-200 bg-indigo-50" },
+  };
   const moreCount = type === "transfer"
     ? (hasFee ? 1 : 0)
     : [notes.trim(), tags.length > 0 ? "tags" : "", receipt.status !== "none" ? "receipt" : ""].filter(Boolean).length;
@@ -119,22 +129,31 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
     <>
     <Modal open={open} onClose={onClose} title="Add transaction">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1" role="group" aria-label="Type">
-          {[["income", "Income", "text-green-700"], ["expense", "Expense", "text-red-700"], ["transfer", "Transfer", "text-slate-900"]].map(([v, label, on]) => (
+        <div className="grid grid-cols-3 gap-2" role="group" aria-label="Type">
+          {[["income", "Income"], ["expense", "Expense"], ["transfer", "Transfer"]].map(([v, label]) => {
+            const detail = typeDetails[v];
+            const Icon = detail.icon;
+            return (
             <button type="button" key={v} onClick={() => pickType(v)} aria-pressed={type === v}
-              className={`rounded-md py-2 text-sm font-medium ${type === v ? `bg-white shadow-sm ${on}` : "text-slate-600 hover:text-slate-900"}`}>
-              {label}
+              className={`relative flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs font-semibold transition ${type === v ? `${detail.selected} shadow-sm` : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`}>
+              <Icon size={20} className={type === v ? detail.color : "text-slate-400"} aria-hidden="true" />
+              <span>{label}</span>
+              {type === v && <Check size={13} className={`absolute ml-14 mt-[-48px] ${detail.color}`} aria-hidden="true" />}
             </button>
-          ))}
+            );
+          })}
         </div>
 
-        <div>
-          <label htmlFor={`${uid}-amount`} className="mb-1 block text-sm font-medium text-slate-700">Amount</label>
+        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor={`${uid}-amount`} className="text-sm font-semibold text-slate-800">How much?</label>
+            <span className={`text-xs font-medium ${typeDetails[type].color}`}>{typeDetails[type].hint}</span>
+          </div>
           <div className="relative">
             <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-2xl text-slate-500">{symbol()}</span>
             <input id={`${uid}-amount`} type="number" min="0.01" step="0.01" placeholder="0.00" value={amount} autoFocus
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-3xl font-semibold outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+              className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-3 text-3xl font-semibold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100" />
           </div>
         </div>
 
@@ -214,13 +233,13 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
             </div>
             <div>
               <span className="mb-1 block text-sm font-medium text-slate-700">Receipt (optional)</span>
-              <ReceiptField txId={null} state={receipt} onChange={setReceipt} />
+              <ReceiptField txId={null} state={receipt} onChange={setReceipt} onScan={applyReceiptScan} />
             </div>
           </div>
         )}
 
         <button type="submit" disabled={saving}
-          className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 font-semibold text-white shadow-md shadow-indigo-600/20 transition hover:-translate-y-0.5 hover:bg-indigo-700 disabled:translate-y-0 disabled:opacity-60">
           {saving ? "Saving..." : "Add transaction"}
         </button>
 

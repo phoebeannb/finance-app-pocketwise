@@ -50,7 +50,7 @@ export default function Modal({ open, onClose, title, children, size = "max-w-md
 
   return (
     <div
-      className={`fixed inset-0 ${z} flex items-end justify-center bg-black/40 sm:items-center sm:p-4`}
+      className={`fixed inset-0 ${z} flex items-end justify-center bg-slate-950/45 backdrop-blur-[2px] sm:items-center sm:p-4`}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -60,7 +60,7 @@ export default function Modal({ open, onClose, title, children, size = "max-w-md
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={trapTab}
-        className={`max-h-[92vh] w-full ${size} overflow-y-auto rounded-t-xl border border-slate-200 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-left shadow-2xl outline-none sm:max-h-[90vh] sm:rounded-xl sm:p-6`}
+        className={`max-h-[92vh] w-full ${size} overflow-y-auto rounded-t-2xl border border-slate-200/80 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-left shadow-2xl outline-none sm:max-h-[90vh] sm:rounded-2xl sm:p-6`}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300 sm:hidden" aria-hidden="true" />
         <div className="mb-4 flex items-center justify-between gap-3">
