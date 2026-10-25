@@ -62,6 +62,40 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position: calc(100% - 1rem) 50%, calc(100% - 0.7rem) 50%;
+  background-repeat: no-repeat;
+  background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
+  padding-right: 2.25rem;
+}
+
+[data-accent="emerald"] { --color-indigo-500: #10b981; --color-indigo-600: #059669; --color-indigo-700: #047857; }
+[data-accent="rose"] { --color-indigo-500: #f43f5e; --color-indigo-600: #e11d48; --color-indigo-700: #be123c; }
+[data-accent="amber"] { --color-indigo-500: #f59e0b; --color-indigo-600: #d97706; --color-indigo-700: #b45309; }
+[data-accent="emerald"] .bg-indigo-600 { background-color: #059669; }
+[data-accent="emerald"] .text-indigo-700 { color: #047857; }
+[data-accent="rose"] .bg-indigo-600 { background-color: #e11d48; }
+[data-accent="rose"] .text-indigo-700 { color: #be123c; }
+[data-accent="amber"] .bg-indigo-600 { background-color: #d97706; }
+[data-accent="amber"] .text-indigo-700 { color: #b45309; }
+[data-icon-style="colorful"] .nav-icon { color: #a5b4fc; }
+
+[data-theme="dark"] body { background: #111827; color: #e5e7eb; }
+[data-theme="dark"] #root { background: #111827; }
+[data-theme="dark"] .app-shell { background: #111827 !important; color: #e5e7eb; }
+[data-theme="dark"] .app-surface { background-color: #1f2937 !important; border-color: #475569; }
+[data-theme="dark"] .bg-white { background-color: #1f2937; }
+[data-theme="dark"] .bg-slate-50, [data-theme="dark"] .bg-slate-100 { background-color: #273449; }
+[data-theme="dark"] .text-slate-900, [data-theme="dark"] .text-slate-800, [data-theme="dark"] .text-slate-700 { color: #e5e7eb; }
+[data-theme="dark"] .text-slate-600, [data-theme="dark"] .text-slate-500 { color: #cbd5e1; }
+[data-theme="dark"] .border-slate-200, [data-theme="dark"] .border-slate-300 { border-color: #475569; }
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background-color: #1f2937; color: #f8fafc; border-color: #475569; }
+[data-theme="dark"] select { color-scheme: dark; }
+[data-theme="dark"] .shadow-sm, [data-theme="dark"] .shadow-md, [data-theme="dark"] .shadow-lg { --tw-shadow-color: rgb(0 0 0 / 0.35); }
+[data-theme="dark"] .divide-slate-100 > :not(:last-child) { border-color: #334155; }
+
 ::selection {
   background: #c7d2fe;
   color: #312e81;

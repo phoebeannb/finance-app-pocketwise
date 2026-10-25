@@ -4,7 +4,7 @@ import { useAuth } from "./AuthContext";
 import { setCurrency } from "../utils/format";
 import { setDateFormat } from "../utils/datetime";
 
-const DEFAULTS = { currency: "PHP", dateFormat: "medium", defaultAccount: null, reportRange: 6 };
+const DEFAULTS = { currency: "PHP", dateFormat: "medium", defaultAccount: null, reportRange: 6, theme: "light", accent: "indigo", iconStyle: "classic" };
 const KEY = "pw_prefs";
 
 const readStored = () => {
@@ -17,6 +17,9 @@ const readStored = () => {
 const apply = (p) => {
   setCurrency(p.currency);
   setDateFormat(p.dateFormat);
+  document.documentElement.dataset.theme = p.theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.accent = p.accent || "indigo";
+  document.documentElement.dataset.iconStyle = p.iconStyle || "classic";
 };
 
 const PreferencesContext = createContext({ prefs: DEFAULTS, save: async () => false });
@@ -38,7 +41,7 @@ export function PreferencesProvider({ children }) {
     localStorage.setItem(KEY, JSON.stringify(next));
     apply(next);
     setPrefs(next);
-    const changed = prev.currency !== next.currency || prev.dateFormat !== next.dateFormat;
+    const changed = prev.currency !== next.currency || prev.dateFormat !== next.dateFormat || prev.theme !== next.theme || prev.accent !== next.accent || prev.iconStyle !== next.iconStyle;
     if (changed) setVersion((v) => v + 1);
     return changed;
   }, []);

@@ -39,7 +39,7 @@ function Field({ label, htmlFor, children }) {
   );
 }
 
-export default function TransactionModal({ open, onClose, onSaved, editing, initial }) {
+export default function TransactionModal({ open, onClose, onSaved, editing, initial, focusGoal = false, focusReceipt = false }) {
   const [form, setForm] = useState(blank());
   const [accounts, setAccounts] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -51,6 +51,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
   const [splits, setSplits] = useState([{ category: "", amount: "" }, { category: "", amount: "" }]);
   const [catOpen, setCatOpen] = useState(false);
   const [moodPromptId, setMoodPromptId] = useState(null);
+  const goalSelectRef = useRef(null);
   const { expense, income, reload } = useCategories();
   const { prefs } = usePrefs();
   const defaultAccount = prefs.defaultAccount;
@@ -105,6 +106,11 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       setSplits([{ category: "", amount: "" }, { category: "", amount: "" }]);
     }
   }, [open, editing, reload, defaultAccount]);
+
+  useEffect(() => {
+    if (!open || !focusGoal || form.type !== "income" || !goals.length) return;
+    goalSelectRef.current?.focus();
+  }, [open, focusGoal, form.type, goals.length]);
 
   // Smart default: suggest a category (and account) from what you typed, but only fill empty fields
   useEffect(() => {
@@ -253,7 +259,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
               {form.type === "income" && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <label htmlFor="tx-goal" className="mb-1 block text-sm font-medium text-slate-700">Add to a savings goal (optional)</label>
-                  <select id="tx-goal" value={form.goalId} onChange={(e) => setForm({ ...form, goalId: e.target.value, goalAmount: e.target.value ? form.goalAmount : "" })} className={field}>
+                  <select ref={goalSelectRef} id="tx-goal" value={form.goalId} onChange={(e) => setForm({ ...form, goalId: e.target.value, goalAmount: e.target.value ? form.goalAmount : "" })} className={field}>
                     <option value="">Do not add to a goal</option>
                     {goals.filter((goal) => goal.saved < goal.target).map((goal) => (
                       <option key={goal._id} value={goal._id}>{goal.name} · {formatMoney(Math.max(0, goal.target - goal.saved))} remaining</option>
@@ -376,7 +382,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
           </Field>
 
           <Field label="Receipt photo (optional)">
-            <ReceiptField txId={editing?._id} state={receipt} onChange={setReceipt} />
+            <ReceiptField txId={editing?._id} state={receipt} onChange={setReceipt} autoFocus={focusReceipt} />
           </Field>
 
           <Field label="Date & time" htmlFor="tx-date">

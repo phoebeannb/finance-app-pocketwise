@@ -81,6 +81,8 @@ export default function Transactions() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [duplicateInitial, setDuplicateInitial] = useState(null);
+  const [focusGoal, setFocusGoal] = useState(false);
+  const [focusReceipt, setFocusReceipt] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
   const { expense, income } = useCategories();
@@ -182,9 +184,13 @@ export default function Transactions() {
   ].filter(Boolean);
 
   const reload = () => load();
-  const openEdit = (t) => { setDuplicateInitial(null); setEditing(t); setModalOpen(true); };
+  const openEdit = (t) => { setDuplicateInitial(null); setFocusGoal(false); setFocusReceipt(false); setEditing(t); setModalOpen(true); };
+  const openMoveToGoal = (t) => { setDuplicateInitial(null); setFocusGoal(true); setFocusReceipt(false); setEditing(t); setModalOpen(true); };
+  const openAddReceipt = (t) => { setDuplicateInitial(null); setFocusGoal(false); setFocusReceipt(true); setEditing(t); setModalOpen(true); };
   const duplicate = (t) => {
     setEditing(null);
+    setFocusGoal(false);
+    setFocusReceipt(false);
     setModalOpen(true);
     setDuplicateInitial({
       type: t.type,
@@ -300,7 +306,7 @@ export default function Transactions() {
           )}
         </div>
         <button onClick={() => setShowFilters((s) => !s)} aria-expanded={showFilters}
-          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${showFilters || activeCount ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
+          className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium ${showFilters || activeCount ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
           <SlidersHorizontal size={16} aria-hidden="true" /> Filters {activeCount > 0 && `(${activeCount})`}
         </button>
       </div>
@@ -308,11 +314,11 @@ export default function Transactions() {
       <div className="mb-4">
         <UnderlineTabs label="Type" value={filters.type} onChange={(type) => update({ type })} options={TYPE_TABS} />
       </div>
-      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Quick filters">
-        <span className="text-xs font-medium text-slate-600">Quick filters:</span>
-        <button type="button" onClick={() => setPreset("month")} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">This month</button>
-        <button type="button" onClick={() => setPreset("30days")} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">Last 30 days</button>
-        <button type="button" onClick={() => setPreset("uncategorized")} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${unsorted ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800"}`}>Needs category</button>
+      <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1" aria-label="Quick filters">
+        <span className="shrink-0 text-xs font-medium text-slate-600">Quick filters:</span>
+        <button type="button" onClick={() => setPreset("month")} className="shrink-0 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">This month</button>
+        <button type="button" onClick={() => setPreset("30days")} className="shrink-0 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">Last 30 days</button>
+        <button type="button" onClick={() => setPreset("uncategorized")} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium ${unsorted ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800"}`}>Needs category</button>
       </div>
 
       {showFilters && (
@@ -464,8 +470,8 @@ export default function Transactions() {
                     <div className="flex w-full justify-end gap-1 sm:w-auto">
                       {!isSavings(t) && <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(t)} />}
                       {!isSavings(t) && <IconButton icon={Copy} label="Duplicate" onClick={() => duplicate(t)} />}
-                      {!t.hasReceipt && !isSavings(t) && <IconButton icon={Paperclip} label="Add receipt" onClick={() => openEdit(t)} />}
-                      {t.type === "income" && !isSavings(t) && <IconButton icon={PiggyBank} label="Move to a goal" onClick={() => openEdit(t)} />}
+                      {!t.hasReceipt && !isSavings(t) && <IconButton icon={Paperclip} label="Add receipt" onClick={() => openAddReceipt(t)} />}
+                      {t.type === "income" && !isSavings(t) && <IconButton icon={PiggyBank} label="Move to a goal" onClick={() => openMoveToGoal(t)} />}
                       <IconButton icon={Trash2} label="Delete" danger onClick={() => removeOne(t)} />
                     </div>
                   </li>
@@ -490,7 +496,7 @@ export default function Transactions() {
         </div>
       )}
 
-      <TransactionModal open={modalOpen} initial={duplicateInitial} editing={editing} onClose={() => setModalOpen(false)} onSaved={reload} />
+      <TransactionModal open={modalOpen} initial={duplicateInitial} editing={editing} focusGoal={focusGoal} focusReceipt={focusReceipt} onClose={() => setModalOpen(false)} onSaved={reload} />
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onImported={reload} />
 
       <Modal open={!!receipt} onClose={() => setReceipt(null)} title="Receipt photo" size="max-w-md">

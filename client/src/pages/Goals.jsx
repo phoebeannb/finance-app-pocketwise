@@ -204,7 +204,7 @@ export default function Goals() {
           <div>
             <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
               <input type="checkbox" checked={Number(form.autoPercent) > 0} onChange={(e) => setForm({ ...form, autoPercent: e.target.checked ? "10" : "" })} className="h-4 w-4 accent-indigo-600" />
-              Automatically save part of every income
+              Automatically save part of every income (optional)
             </label>
             {Number(form.autoPercent) > 0 && (
               <div className="mt-2">

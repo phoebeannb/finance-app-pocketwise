@@ -82,7 +82,7 @@ function NavItem({ item, labels, badges }) {
         `relative flex items-center rounded-lg text-sm font-medium ${labels ? "gap-3 px-3 py-2.5" : "h-11 w-11 justify-center"} ${
           isActive ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5 hover:text-white"
         }`}>
-      <item.icon size={18} aria-hidden="true" />
+      <item.icon className="nav-icon" size={18} aria-hidden="true" />
       {labels && <span className="flex-1">{item.label}</span>}
       {count > 0 && (labels ? (
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold text-white ${badgeColor(item.badge)}`}>
@@ -155,7 +155,7 @@ function TabLink({ item, badges }) {
     <NavLink to={item.to} end={item.end}
       className={({ isActive }) =>
         `relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${isActive ? "text-indigo-700" : "text-slate-600"}`}>
-      <item.icon size={22} aria-hidden="true" />
+      <item.icon className="nav-icon" size={22} aria-hidden="true" />
       {item.label}
       {count > 0 && (
         <span className={`absolute right-[22%] top-2 h-2.5 w-2.5 rounded-full ${badgeColor(item.badge)}`}>
@@ -205,7 +205,7 @@ export default function Layout() {
 
   return (
     <QuickAddContext.Provider value={ctx}>
-      <div className="min-h-screen w-full bg-[#f4f5f7] text-slate-900 sm:flex">
+      <div className="app-shell min-h-screen w-full bg-[#f4f5f7] text-slate-900 sm:flex">
         <a href="#main-content" className="sr-only fixed left-3 top-3 z-[100] rounded-lg bg-white px-4 py-3 font-medium text-indigo-700 shadow-lg focus:not-sr-only">
           Skip to main content
         </a>
@@ -227,7 +227,7 @@ export default function Layout() {
         </main>
 
         {/* Phone: bottom tab bar */}
-        <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 shadow-[0_-4px_18px_rgb(15_23_42_/_0.08)] backdrop-blur sm:hidden">
+        <nav aria-label="Main" className="app-surface pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 shadow-[0_-4px_18px_rgb(15_23_42_/_0.08)] backdrop-blur sm:hidden">
           <div className="mx-auto flex max-w-md items-end justify-around px-2">
             <TabLink item={OVERVIEW} badges={badges} />
             <TabLink item={TRANSACTIONS} badges={badges} />

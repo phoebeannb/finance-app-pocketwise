@@ -32,6 +32,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const [accounts, setAccounts] = useState([]);
   const [hint, setHint] = useState("");
   const [saving, setSaving] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { expense, income, reload } = useCategories();
   const { prefs } = usePrefs();
   const defaultAccount = prefs.defaultAccount;
@@ -42,6 +43,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
     if (!open) return;
     setType(["income", "expense", "transfer"].includes(initial?.type) ? initial.type : "expense"); setAmount(""); setNote(""); setNotes(""); setTags([]); setReceipt({ status: "none" });
     setCategory(""); setHint(""); setAccount(""); setToAccount(""); setHasFee(false); setFee("");
+    setMoreOpen(false);
     reload();
     api.get("/accounts").then(({ data }) => {
       setAccounts(data);
@@ -74,6 +76,9 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const pickType = (t) => { setType(t); setCategory(""); setHint(""); };
 
   const all = type === "income" ? income : expense;
+  const moreCount = type === "transfer"
+    ? (hasFee ? 1 : 0)
+    : [notes.trim(), tags.length > 0 ? "tags" : "", receipt.status !== "none" ? "receipt" : ""].filter(Boolean).length;
   const submit = async (e) => {
     e.preventDefault();
     const n = Number(amount);
@@ -167,6 +172,28 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
                 {accounts.filter((a) => a._id !== account).map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
               </select>
             </label>
+          </div>
+        )}
+
+        {type !== "transfer" && <div>
+          <label htmlFor={`${uid}-acc`} className="mb-1 block text-sm font-medium text-slate-700">Account</label>
+          <select id={`${uid}-acc`} value={account} onChange={(e) => setAccount(e.target.value)} className={field}>
+            <option value="">{accounts.length ? "No account (balances won't change)" : "No accounts yet"}</option>
+            {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
+          </select>
+        </div>}
+
+        <button type="button" onClick={() => setMoreOpen((value) => !value)} aria-expanded={moreOpen} aria-controls={`${uid}-more-options`}
+          className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <span className="text-left">
+            <span className="block">{moreOpen ? "Hide more options" : "More options"}{moreCount > 0 && <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800">{moreCount} added</span>}</span>
+            {!moreOpen && <span className="mt-0.5 block text-xs font-normal text-slate-600">{type === "transfer" ? "Add a transfer fee" : "Notes, tags, or a receipt"}</span>}
+          </span>
+          <span aria-hidden="true">{moreOpen ? "−" : "+"}</span>
+        </button>
+
+        {moreOpen && type === "transfer" && (
+          <div id={`${uid}-more-options`} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <input type="checkbox" checked={hasFee} onChange={(e) => setHasFee(e.target.checked)} className="h-4 w-4 accent-indigo-600" /> This transfer has a fee
             </label>
@@ -174,8 +201,8 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
           </div>
         )}
 
-        {type !== "transfer" && (
-          <div className="space-y-3">
+        {moreOpen && type !== "transfer" && (
+          <div id={`${uid}-more-options`} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div>
               <label htmlFor={`${uid}-notes`} className="mb-1 block text-sm font-medium text-slate-700">Note (optional)</label>
               <textarea id={`${uid}-notes`} value={notes} maxLength={500} rows={2}
@@ -191,14 +218,6 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
             </div>
           </div>
         )}
-
-        {type !== "transfer" && <div>
-          <label htmlFor={`${uid}-acc`} className="mb-1 block text-sm font-medium text-slate-700">Account</label>
-          <select id={`${uid}-acc`} value={account} onChange={(e) => setAccount(e.target.value)} className={field}>
-            <option value="">{accounts.length ? "No account (balances won't change)" : "No accounts yet"}</option>
-            {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
-          </select>
-        </div>}
 
         <button type="submit" disabled={saving}
           className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">
