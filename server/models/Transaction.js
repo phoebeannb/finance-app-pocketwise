@@ -24,6 +24,7 @@ const transactionSchema = new mongoose.Schema({
   toAccount: { type: mongoose.Schema.Types.ObjectId, ref: "Account", default: null },
   goal: { type: mongoose.Schema.Types.ObjectId, ref: "Goal", default: null },
   autoFrom: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction", default: null },
+  manualSave: { type: Boolean, default: false },
   recurring: { type: mongoose.Schema.Types.ObjectId, ref: "Recurring", default: null },
   occurrence: { type: Date, default: null },
 }, { timestamps: true });

@@ -45,6 +45,7 @@ export async function applyAutoSave(income) {
           account: income.account,
           toAccount: null,
           autoFrom: income._id,
+          manualSave: true,
         });
         total = r2(total + portion);
       } catch (err) {
@@ -70,7 +71,52 @@ export async function reverseAutoSave(userId, incomeId) {
         await goal.save();
       }
     }
+
   } catch (err) {
     console.error("Undoing auto-save failed:", err.message);
+  }
+}
+
+export async function validateManualSave(income, goalId, amount) {
+  const portion = r2(Number(amount));
+  if (!goalId && !amount) return null;
+  if (!goalId) return "Choose a savings goal or clear the contribution amount";
+  if (!Number.isFinite(portion) || portion <= 0) return "Enter a goal contribution greater than 0";
+  if (portion > income.amount) return "The goal contribution cannot be greater than this income";
+  const goal = await Goal.findOne({ _id: goalId, user: income.user });
+  if (!goal) return "That savings goal wasn't found";
+  if (portion > r2(goal.target - goal.saved) + 0.005) return "That contribution would exceed the goal target";
+  return null;
+}
+
+export async function applyManualSave(income, goalId, amount) {
+  const error = await validateManualSave(income, goalId, amount);
+  if (error) return { error };
+
+  const portion = r2(Number(amount));
+  const goal = await Goal.findOneAndUpdate(
+    { _id: goalId, user: income.user, $expr: { $lte: [{ $add: ["$saved", portion] }, { $add: ["$target", 0.005] }] } },
+    { $inc: { saved: portion } },
+    { new: true }
+  );
+  if (!goal) return { error: "That contribution would exceed the goal target" };
+
+  try {
+    const tx = await Transaction.create({
+      user: income.user,
+      type: "transfer",
+      amount: portion,
+      category: "Savings",
+      description: `Saved for ${goal.name}`,
+      date: income.date,
+      goal: goal._id,
+      account: income.account,
+      toAccount: null,
+      autoFrom: income._id,
+    });
+    return { amount: portion, tx };
+  } catch (err) {
+    await Goal.updateOne({ _id: goal._id }, { $inc: { saved: -portion } });
+    throw err;
   }
 }

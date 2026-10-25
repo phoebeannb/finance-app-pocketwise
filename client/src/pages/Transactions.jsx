@@ -83,6 +83,7 @@ export default function Transactions() {
 
   const { expense, income } = useCategories();
   const allCats = useMemo(() => [...new Set([...expense, ...income])].sort((a, b) => a.localeCompare(b)), [expense, income]);
+  const earned = data ? Object.values(data.daily || {}).find((day) => day.income > 0)?.income || 0 : 0;
 
   const dq = useDebounced(filters.q);
   const dmin = useDebounced(filters.min);
@@ -243,6 +244,23 @@ export default function Transactions() {
 
       {error && <ErrorBar message={error} onRetry={load} />}
 
+      {data && data.total > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className={`${card} p-5`}>
+            <div className="text-sm text-slate-600">Income</div>
+            <div className="mt-2 text-3xl font-semibold text-green-700">{formatMoney(data.totals.income)}</div>
+          </div>
+          <div className={`${card} p-5`}>
+            <div className="text-sm text-slate-600">Expenses</div>
+            <div className="mt-2 text-3xl font-semibold text-red-700">{formatMoney(data.totals.expenses)}</div>
+          </div>
+          <div className={`${card} p-5`}>
+            <div className="text-sm text-slate-600">Earned</div>
+            <div className="mt-2 text-3xl font-semibold text-green-700">{formatMoney(earned)}</div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="relative min-w-60 flex-1">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -328,15 +346,12 @@ export default function Transactions() {
       )}
 
       {data && data.total > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <label className="flex cursor-pointer items-center gap-2">
             <input type="checkbox" checked={allOnPage} onChange={toggleAll} className="h-4 w-4 accent-indigo-600" />
             Select all on this page
           </label>
-          <span>
-            Showing {start}–{end} of {data.total} · Income <span className="font-semibold text-green-700">{formatMoney(data.totals.income)}</span>
-            {" · "}Expenses <span className="font-semibold text-red-700">{formatMoney(data.totals.expenses)}</span>
-          </span>
+          <span className="text-sm text-slate-600">Showing {start}–{end} of {data.total}</span>
         </div>
       )}
 
@@ -381,11 +396,20 @@ export default function Transactions() {
                 {rel === full ? full : <>{rel} <span className="font-normal text-slate-600">· {full}</span></>}
               </h3>
               {totals && (totals.expenses > 0 || totals.income > 0) && (
-                <span className="text-sm text-slate-600">
-                  {totals.expenses > 0 && <>Spent <b className="text-red-700">{formatMoney(totals.expenses)}</b></>}
-                  {totals.expenses > 0 && totals.income > 0 && " · "}
-                  {totals.income > 0 && <>Earned <b className="text-green-700">{formatMoney(totals.income)}</b></>}
-                </span>
+                <div className="mt-2 grid w-full grid-cols-2 gap-2 sm:mt-0 sm:w-auto sm:min-w-[15rem]">
+                  {totals.expenses > 0 && (
+                    <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-right">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-red-800">Expenses</div>
+                      <div className="text-sm font-bold text-red-700">{formatMoney(totals.expenses)}</div>
+                    </div>
+                  )}
+                  {totals.income > 0 && (
+                    <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-right">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-green-800">Earned</div>
+                      <div className="text-sm font-bold text-green-700">{formatMoney(totals.income)}</div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

@@ -2,17 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, Target, X } from "lucide-react";
 import api from "../api/axios";
 import { formatMoney } from "../utils/format";
-import { fmtDate, relativeDay, nowLocalInput, toStored } from "../utils/datetime";
-import { toast } from "../utils/toast";
-import { undoableDelete } from "../utils/undoDelete";
+import { fmtDate, relativeDay } from "../utils/datetime";
 import Modal from "../components/Modal";
+import ConfirmModal from "../components/ConfirmModal";
 import Ring from "../components/Ring";
 import Skeleton from "../components/Skeleton";
 import { IconButton, Stat, Empty, ErrorBar, card } from "../components/ui";
 
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
-const LIABILITIES = ["Credit Card", "Loan"];
 const blank = { name: "", target: "", deadline: "", autoPercent: "" };
 const CELEB_KEY = "pw_goals_celebrated";
 
@@ -30,11 +28,7 @@ export default function Goals() {
   const [goalOpen, setGoalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(blank);
-
-  const [wGoal, setWGoal] = useState(null);
-  const [wAmount, setWAmount] = useState("");
-  const [accounts, setAccounts] = useState([]);
-  const [wAccount, setWAccount] = useState("");
+  const [deleting, setDeleting] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -64,7 +58,7 @@ export default function Goals() {
     try { localStorage.setItem(CELEB_KEY, JSON.stringify(next)); } catch { /* storage blocked */ }
   };
 
-  const openNew = () => { setEditing(null); setForm({ ...blank, autoPercent: String(Math.min(10, freeAll)) }); setGoalOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ ...blank }); setGoalOpen(true); };
   const openEdit = (g) => {
     setEditing(g);
     setForm({ name: g.name, target: g.target, deadline: g.deadline ? g.deadline.slice(0, 10) : "", autoPercent: String(g.autoPercent || 0) });
@@ -82,45 +76,15 @@ export default function Goals() {
     } catch { /* the red message explains what to fix */ }
   };
 
-  const openWithdraw = (g) => {
-    setWGoal(g);
-    setWAmount("");
-    api.get("/accounts").then(({ data }) => {
-      const own = data.filter((a) => !LIABILITIES.includes(a.type));
-      setAccounts(own);
-      setWAccount(own[0]?._id || "");
-    }).catch(() => {});
+  const remove = async () => {
+    await api.delete(`/goals/${deleting._id}`, { quiet: true });
+    setDeleting(null);
+    load();
   };
-
-  const saveWithdraw = async (e) => {
-    e.preventDefault();
-    const n = Number(wAmount);
-    if (!(n > 0)) return toast.error("Enter the amount you want to withdraw.");
-    if (n > wGoal.saved) return toast.error(`You can only withdraw up to ${formatMoney(wGoal.saved)} from this goal.`);
-    if (!wAccount) return toast.error("Choose the account that receives the money. Create one in the Accounts tab if you have none.");
-    try {
-      await api.post(`/goals/${wGoal._id}/funds`, { amount: -n, account: wAccount, date: toStored(nowLocalInput()) });
-      setWGoal(null);
-      load();
-    } catch { /* the red message explains what to fix */ }
-  };
-
-  const remove = (g) =>
-    undoableDelete({
-      key: g._id,
-      message: `Goal "${g.name}" deleted.${g.saved > 0 ? " Its savings go back to your accounts." : ""}`,
-      hide: () => setGoals((l) => l.filter((x) => x._id !== g._id)),
-      restore: load,
-      run: () => api.delete(`/goals/${g._id}`, { quiet: true }),
-      done: load,
-    });
 
   const saved = list.reduce((s, g) => s + g.saved, 0);
   const target = list.reduce((s, g) => s + g.target, 0);
   const reached = list.filter((g) => g.saved >= g.target).length;
-  const acct = accounts.find((a) => a._id === wAccount);
-  const wn = Number(wAmount);
-
   return (
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -192,16 +156,13 @@ export default function Goals() {
                   <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${g.autoPercent > 0 ? "bg-slate-50 text-slate-700" : "bg-amber-50 text-amber-900"}`}>
                     {g.autoPercent > 0
                       ? `${percentText(g.autoPercent)} of every income goes here automatically.`
-                      : "Auto-save is off, so nothing moves in by itself. Edit this goal and set a percent."}
+                      : "Auto-save is off. You can add money to this goal when recording income."}
                   </p>
 
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                    {g.saved > 0 ? (
-                      <button onClick={() => openWithdraw(g)} className="text-sm font-medium text-indigo-700 hover:underline">Withdraw</button>
-                    ) : <span />}
                     <div className="flex">
                       <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(g)} />
-                      <IconButton icon={Trash2} label="Delete" danger onClick={() => remove(g)} />
+                      <IconButton icon={Trash2} label="Delete" danger onClick={() => setDeleting(g)} />
                     </div>
                   </div>
                 </article>
@@ -212,7 +173,7 @@ export default function Goals() {
           <section className="mt-8" aria-labelledby="goal-activity">
             <h3 id="goal-activity" className="mb-2 px-1 text-base font-semibold">Recent savings activity</h3>
             {activity?.length === 0 ? (
-              <p className="px-1 text-slate-600">Nothing yet. Savings appear here the next time you add income to a bank account.</p>
+              <p className="px-1 text-slate-600">Nothing yet. Savings appear here when you add income and choose a goal, or when automatic saving runs.</p>
             ) : (
               <ul className={`${card} divide-y divide-slate-100`}>
                 {(activity || []).map((t) => (
@@ -241,12 +202,12 @@ export default function Goals() {
             <input id="g-target" type="number" min="1" step="0.01" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} required className={field} />
           </div>
           <div>
-            <label htmlFor="g-auto" className="mb-1 block text-sm font-medium text-slate-700">Auto-save (% of every income)</label>
+            <label htmlFor="g-auto" className="mb-1 block text-sm font-medium text-slate-700">Auto-save (% of every income, optional)</label>
             <input id="g-auto" type="number" min="0" max="100" step="0.5" value={form.autoPercent} onChange={(e) => setForm({ ...form, autoPercent: e.target.value })} className={field} />
             <p className="mt-1 text-xs text-slate-600">
               {Number(form.autoPercent) > 0
                 ? `On a ${formatMoney(10000)} income, ${formatMoney((10000 * Number(form.autoPercent)) / 100)} moves into this goal. `
-                : "At 0%, nothing moves in by itself. "}
+                : "Leave this empty if you only want to add money manually when recording income. "}
               You can use up to {percentText(freeHere)} here.
             </p>
           </div>
@@ -260,32 +221,13 @@ export default function Goals() {
         </form>
       </Modal>
 
-      <Modal open={!!wGoal} onClose={() => setWGoal(null)} title={wGoal ? `Withdraw from ${wGoal.name}` : ""} size="max-w-sm">
-        {wGoal && (
-          <form onSubmit={saveWithdraw} className="space-y-3">
-            <p className="text-sm text-slate-700">Saved so far: <span className="font-semibold text-slate-900">{formatMoney(wGoal.saved)}</span></p>
-            <div>
-              <label htmlFor="w-amt" className="mb-1 block text-sm font-medium text-slate-700">Amount</label>
-              <div className="flex gap-2">
-                <input id="w-amt" type="number" min="0.01" step="0.01" value={wAmount} autoFocus onChange={(e) => setWAmount(e.target.value)} required className={`${field} min-w-0`} />
-                <button type="button" onClick={() => setWAmount(String(wGoal.saved))} className="shrink-0 rounded-lg border border-slate-300 px-3 text-sm hover:bg-slate-50">All</button>
-              </div>
-            </div>
-            <div>
-              <label htmlFor="w-acc" className="mb-1 block text-sm font-medium text-slate-700">Send the money to</label>
-              <select id="w-acc" value={wAccount} onChange={(e) => setWAccount(e.target.value)} className={field}>
-                {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
-              </select>
-            </div>
-            {wn > 0 && acct && (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                {acct.name} will have <span className="font-semibold text-slate-900">{formatMoney(acct.currentBalance + wn)}</span>.
-              </p>
-            )}
-            <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">Withdraw</button>
-          </form>
-        )}
-      </Modal>
+      <ConfirmModal
+        open={!!deleting}
+        title="Delete this goal?"
+        message={deleting ? `“${deleting.name}” and its saved amount will be deleted. This cannot be undone.` : ""}
+        onClose={() => setDeleting(null)}
+        onConfirm={remove}
+      />
     </div>
   );
 }

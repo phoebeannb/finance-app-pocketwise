@@ -17,6 +17,7 @@ const LAST_KEY = "pw_last_account";
 
 const blank = () => ({
   type: "expense", amount: "", category: "", description: "", notes: "", tags: [], mood: "",
+  goalId: "", goalAmount: "",
   date: nowLocalInput(), account: "", toAccount: "", hasFee: false, fee: "",
 });
 
@@ -41,6 +42,7 @@ function Field({ label, htmlFor, children }) {
 export default function TransactionModal({ open, onClose, onSaved, editing, initial }) {
   const [form, setForm] = useState(blank());
   const [accounts, setAccounts] = useState([]);
+  const [goals, setGoals] = useState([]);
   const [receipt, setReceipt] = useState({ status: "none" });
   const [hint, setHint] = useState("");
   const [error, setError] = useState("");
@@ -60,13 +62,14 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
     setError("");
     setHint("");
     reload();
-    api.get("/accounts").then(({ data }) => {
-      setAccounts(data);
+    Promise.all([api.get("/accounts"), api.get("/goals")]).then(([accountsRes, goalsRes]) => {
+      setAccounts(accountsRes.data);
+      setGoals(goalsRes.data);
       if (!editing) {
         // Smart default: the account you used last, then your default account
         let last = "";
         try { last = localStorage.getItem(LAST_KEY) || ""; } catch { /* storage blocked */ }
-        const pick = [last, defaultAccount].find((id) => id && data.some((a) => a._id === id));
+        const pick = [last, defaultAccount].find((id) => id && accountsRes.data.some((a) => a._id === id));
         if (pick) setForm((f) => (f.account ? f : { ...f, account: pick }));
       }
     }).catch(() => {});
@@ -79,6 +82,8 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
         notes: editing.notes || "",
         tags: editing.tags || [],
         mood: editing.mood || "",
+          goalId: "",
+          goalAmount: "",
         date: toInput(editing.date),
         account: editing.account?._id || "",
         toAccount: editing.toAccount?._id || "",
@@ -88,6 +93,11 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       setReceipt({ status: editing.hasReceipt ? "existing" : "none" });
       setSplitEnabled(Boolean(editing.splits?.length));
       setSplits(editing.splits?.length ? editing.splits : [{ category: "", amount: "" }, { category: "", amount: "" }]);
+      if (editing.type === "income") {
+        api.get(`/transactions/${editing._id}/goal-save`)
+          .then(({ data }) => setForm((current) => ({ ...current, goalId: data?.goalId || "", goalAmount: data?.amount || "" })))
+          .catch(() => {});
+      }
     } else {
       setForm({ ...blank(), ...(initial || {}) });
       setReceipt({ status: "none" });
@@ -129,6 +139,8 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       ...form, type, category: "",
       mood: type === "transfer" ? "" : form.mood,
       tags: type === "transfer" ? [] : form.tags,
+      goalId: type === "income" ? form.goalId : "",
+      goalAmount: type === "income" ? form.goalAmount : "",
       toAccount: type === "transfer" ? form.toAccount : "",
       hasFee: type === "transfer" ? form.hasFee : false,
       fee: type === "transfer" ? form.fee : "",
@@ -149,6 +161,8 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
     if (isTransfer && !form.toAccount) return setError("Choose the destination account.");
     if (isTransfer && form.account === form.toAccount) return setError("Choose two different accounts for a transfer.");
     if (!isTransfer && !splitEnabled && !form.category) return setError("Choose a category.");
+    if (form.type === "income" && form.goalId && !(Number(form.goalAmount) > 0))
+      return setError("Enter the amount to add to the savings goal.");
     if (!isTransfer && splitEnabled) {
       if (splits.some((part) => !part.category || !(Number(part.amount) > 0))) return setError("Each split needs a category and amount.");
       if (Math.abs(splitTotal - amount) > 0.01) return setError("Split amounts must add up to the transaction amount.");
@@ -168,6 +182,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       toAccount: isTransfer ? form.toAccount || null : null,
       fee: isTransfer && form.hasFee ? Number(form.fee) : 0,
       splits: !isTransfer && splitEnabled ? splits.map((part) => ({ category: part.category, amount: Number(part.amount) })) : [],
+      goalSave: form.type === "income" && form.goalId ? { goalId: form.goalId, amount: Number(form.goalAmount) } : null,
     };
     try {
       const res = editing ? await api.put(`/transactions/${editing._id}`, payload) : await api.post("/transactions", payload);
@@ -231,6 +246,25 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
                   </p>
                 )}
               </Field>
+
+              {form.type === "income" && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <label htmlFor="tx-goal" className="mb-1 block text-sm font-medium text-slate-700">Add to a savings goal (optional)</label>
+                  <select id="tx-goal" value={form.goalId} onChange={(e) => setForm({ ...form, goalId: e.target.value, goalAmount: e.target.value ? form.goalAmount : "" })} className={field}>
+                    <option value="">Do not add to a goal</option>
+                    {goals.filter((goal) => goal.saved < goal.target).map((goal) => (
+                      <option key={goal._id} value={goal._id}>{goal.name} · {formatMoney(Math.max(0, goal.target - goal.saved))} remaining</option>
+                    ))}
+                  </select>
+                  {form.goalId && (
+                    <div className="mt-2">
+                      <label htmlFor="tx-goal-amount" className="mb-1 block text-xs font-medium text-slate-600">Amount from this income</label>
+                      <input id="tx-goal-amount" name="goalAmount" type="number" min="0.01" step="0.01" placeholder="0.00" value={form.goalAmount} onChange={handleChange} className={field} />
+                      <p className="mt-1 text-xs text-slate-600">This amount is deducted from the account balance and added to the goal.</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Field label="Category" htmlFor="tx-category">
                 <div className="flex gap-2">

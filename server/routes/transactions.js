@@ -6,7 +6,7 @@ import Goal from "../models/Goal.js";
 import Rule from "../models/Rule.js";
 import auth from "../middleware/auth.js";
 import { startOfToday, startOfThisMonth, addDays } from "../utils/dates.js";
-import { applyAutoSave, reverseAutoSave } from "../utils/autosave.js";
+import { applyAutoSave, applyManualSave, reverseAutoSave, validateManualSave } from "../utils/autosave.js";
 import { prepareRules, suggestCategory } from "../utils/autoCategory.js";
 import { MOOD_KEYS } from "../utils/moods.js";
 import { archiveDeleted } from "../utils/deletedItems.js";
@@ -344,8 +344,21 @@ router.post("/", async (req, res) => {
   try {
     const { error, data } = await buildPayload(req.body, req.userId);
     if (error) return res.status(400).json({ message: error });
+    if (data.type === "income") {
+      const manualError = await validateManualSave({ ...data, user: req.userId }, req.body.goalSave?.goalId, req.body.goalSave?.amount);
+      if (manualError) return res.status(400).json({ message: manualError });
+    }
     const tx = await Transaction.create({ ...data, user: req.userId });
-    const autoSaved = tx.type === "income" ? await applyAutoSave(tx) : 0;
+    let autoSaved = 0;
+    if (tx.type === "income" && req.body.goalSave?.goalId) {
+      const manual = await applyManualSave(tx, req.body.goalSave.goalId, req.body.goalSave.amount);
+      if (manual.error) {
+        await tx.deleteOne();
+        return res.status(400).json({ message: manual.error });
+      }
+      autoSaved += manual.amount;
+    }
+    if (tx.type === "income") autoSaved += await applyAutoSave(tx);
     res.status(201).json(withAuto(tx, autoSaved));
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -361,6 +374,10 @@ router.put("/:id", async (req, res) => {
 
     const { error, data } = await buildPayload(req.body, req.userId);
     if (error) return res.status(400).json({ message: error });
+    if (data.type === "income") {
+      const manualError = await validateManualSave({ ...data, user: req.userId }, req.body.goalSave?.goalId, req.body.goalSave?.amount);
+      if (manualError) return res.status(400).json({ message: manualError });
+    }
 
     const tx = await Transaction.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
@@ -369,7 +386,13 @@ router.put("/:id", async (req, res) => {
     );
     // The income may have changed (amount, account or type), so redo its automatic savings
     await reverseAutoSave(req.userId, tx._id);
-    const autoSaved = tx.type === "income" ? await applyAutoSave(tx) : 0;
+    let autoSaved = 0;
+    if (tx.type === "income" && req.body.goalSave?.goalId) {
+      const manual = await applyManualSave(tx, req.body.goalSave.goalId, req.body.goalSave.amount);
+      if (manual.error) return res.status(400).json({ message: manual.error });
+      autoSaved += manual.amount;
+    }
+    if (tx.type === "income") autoSaved += await applyAutoSave(tx);
     res.json(withAuto(tx, autoSaved));
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -402,6 +425,13 @@ router.delete("/:id", async (req, res) => {
 });
 
 /* ---------- Receipt photo (resized to a small JPEG in the browser first) ---------- */
+
+router.get("/:id/goal-save", async (req, res) => {
+  const save = await Transaction.findOne({ user: req.userId, autoFrom: req.params.id, manualSave: true })
+    .select("goal amount")
+    .lean();
+  res.json(save ? { goalId: save.goal, amount: save.amount } : null);
+});
 
 router.get("/:id/receipt", async (req, res) => {
   try {
