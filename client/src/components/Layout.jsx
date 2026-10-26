@@ -175,6 +175,7 @@ export default function Layout() {
   const [quickInitial, setQuickInitial] = useState(null);
   const [fullOpen, setFullOpen] = useState(false);
   const [fullInitial, setFullInitial] = useState(null);
+  const [focusReceipt, setFocusReceipt] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -185,9 +186,14 @@ export default function Layout() {
   const ctx = useMemo(() => ({
     open: (initial) => { setQuickInitial(initial || null); setQuickOpen(true); },
     openBill: () => setBillQuickOpen(true),
+    openReceipt: () => {
+      setFullInitial({ type: "expense" });
+      setFocusReceipt(true);
+      setFullOpen(true);
+    },
     refresh: saved,
   }), [saved]);
-  const openFull = (initial) => { setFullInitial(initial || null); setQuickOpen(false); setFullOpen(true); };
+  const openFull = (initial) => { setFullInitial(initial || null); setFocusReceipt(false); setQuickOpen(false); setFullOpen(true); };
   const requestLogout = () => {
     setMoreOpen(false);
     setLogoutOpen(true);
@@ -255,7 +261,7 @@ export default function Layout() {
         {location.pathname === "/" && <NotificationCenter />}
         <QuickAdd open={quickOpen} initial={quickInitial} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
         <BillQuickAdd open={billQuickOpen} onClose={() => setBillQuickOpen(false)} onSaved={saved} />
-        <TransactionModal open={fullOpen} initial={fullInitial} onClose={() => setFullOpen(false)} onSaved={saved} />
+        <TransactionModal open={fullOpen} initial={fullInitial} focusReceipt={focusReceipt} onClose={() => setFullOpen(false)} onSaved={saved} />
 
         <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
           <ul className="divide-y divide-slate-100">

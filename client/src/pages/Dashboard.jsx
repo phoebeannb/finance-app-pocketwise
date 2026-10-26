@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, CalendarClock } from "lucide-react";
+import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useQuickAdd } from "../context/QuickAddContext";
@@ -83,7 +83,7 @@ function SafeCard({ safe }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { open: openAdd, openBill, refresh } = useQuickAdd();
+  const { open: openAdd, openReceipt, refresh } = useQuickAdd();
   const [month, setMonth] = useState(monthNow());
   const [summary, setSummary] = useState(null);
   const [safe, setSafe] = useState(null);
@@ -188,7 +188,6 @@ export default function Dashboard() {
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{greeting()}, {firstName}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <MonthStepper month={month} onChange={setMonth} />
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => openAdd({ type: "expense" })}
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md">
@@ -198,8 +197,8 @@ export default function Dashboard() {
               className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50">
               <ArrowUpRight size={16} aria-hidden="true" /> Add income
             </button>
-            <button onClick={openBill} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50">
-              <CalendarClock size={16} aria-hidden="true" /> Add bill
+            <button onClick={openReceipt} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50">
+              <ScanLine size={16} aria-hidden="true" /> Scan receipt
             </button>
           </div>
         </div>
@@ -249,7 +248,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <h3 className="mb-2 mt-7 text-lg font-semibold">This month</h3>
+          <div className="mb-2 mt-7 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold">This month</h3>
+            <MonthStepper month={month} onChange={setMonth} />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className={`${card} p-5`}>
               <div className="text-sm text-slate-600">Income · {monthLabel(month)}</div>
