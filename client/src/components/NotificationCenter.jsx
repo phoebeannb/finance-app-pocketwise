@@ -29,7 +29,7 @@ const loadReadIds = () => {
   }
 };
 
-export default function NotificationCenter() {
+export default function NotificationCenter({ compact = false }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState({ bills: [], budgets: [], accounts: [], debts: [] });
   const [loaded, setLoaded] = useState(false);
@@ -88,7 +88,7 @@ export default function NotificationCenter() {
 
   return <>
     <button type="button" onClick={() => { setOpen(true); load(); }} aria-label={`Notifications${unreadNotifications.length ? `, ${unreadNotifications.length} unread` : ""}`} title="Notifications"
-      className="fixed right-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md hover:border-indigo-200 hover:text-indigo-700 sm:right-6 sm:top-6 lg:right-8 lg:top-8">
+      className={`${compact ? "" : "fixed right-4 top-4 z-30 sm:right-6 sm:top-6 lg:right-8 lg:top-8"} relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700`}>
       <Bell size={18} />
       {unreadNotifications.length > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{unreadNotifications.length > 9 ? "9+" : unreadNotifications.length}</span>}
     </button>

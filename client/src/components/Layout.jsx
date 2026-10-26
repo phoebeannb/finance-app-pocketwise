@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
-  LogOut, Plus, Wallet, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users,
+  LogOut, Plus, Wallet, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -169,6 +169,8 @@ function TabLink({ item, badges }) {
 export default function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
   const [wide, setWide] = useState(false); // tablet rail: show labels or not
   const [quickOpen, setQuickOpen] = useState(false);
   const [billQuickOpen, setBillQuickOpen] = useState(false);
@@ -198,6 +200,11 @@ export default function Layout() {
     setMoreOpen(false);
     setLogoutOpen(true);
   };
+  const submitSearch = (e) => {
+    e.preventDefault();
+    const query = search.trim();
+    navigate(query ? `/transactions?q=${encodeURIComponent(query)}` : "/transactions");
+  };
 
   // Opened from the installed app's shortcut (/?add=1)
   useEffect(() => {
@@ -226,6 +233,30 @@ export default function Layout() {
         </aside>
 
         <main id="main-content" tabIndex={-1} className="app-main min-w-0 flex-1 p-4 pb-28 outline-none sm:p-6 sm:pb-8 lg:p-8">
+          <header className="mb-6 flex flex-wrap items-center gap-3">
+            <form onSubmit={submitSearch} className="relative min-w-[min(100%,16rem)] flex-1 sm:max-w-md">
+              <Search size={17} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search transactions"
+                aria-label="Search transactions"
+                className="h-10 w-full rounded-lg border border-transparent bg-slate-100 py-2 pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-500 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              />
+            </form>
+            <div className="ml-auto flex items-center gap-2">
+              <button type="button" onClick={() => setQuickOpen(true)}
+                className="flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700">
+                <Plus size={17} aria-hidden="true" /> <span className="hidden sm:inline">Quick</span>
+              </button>
+              <NotificationCenter compact />
+              <NavLink to="/settings?tab=profile" aria-label="Open profile" title="Profile"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
+                <UserCircle size={23} aria-hidden="true" />
+              </NavLink>
+            </div>
+          </header>
           {/* Changing the key reloads the page you're on, so new data shows up after saving */}
           <div key={refresh}>
             <Outlet />
@@ -258,7 +289,6 @@ export default function Layout() {
         </nav>
 
         <Shortcuts onAdd={() => setQuickOpen(true)} onLogout={requestLogout} />
-        {location.pathname === "/" && <NotificationCenter />}
         <QuickAdd open={quickOpen} initial={quickInitial} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
         <BillQuickAdd open={billQuickOpen} onClose={() => setBillQuickOpen(false)} onSaved={saved} />
         <TransactionModal open={fullOpen} initial={fullInitial} focusReceipt={focusReceipt} onClose={() => setFullOpen(false)} onSaved={saved} />
