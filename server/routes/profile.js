@@ -22,9 +22,9 @@ const DATE_FORMATS = ["medium", "dmy", "mdy", "iso"];
 /* ---------- Profile ---------- */
 
 router.get("/", async (req, res) => {
-  const user = await User.findById(req.userId).select("name email createdAt");
+  const user = await User.findById(req.userId).select("name email profilePhoto createdAt");
   if (!user) return res.status(404).json({ message: "Not found" });
-  res.json({ id: user._id, name: user.name, email: user.email, createdAt: user.createdAt });
+  res.json({ id: user._id, name: user.name, email: user.email, profilePhoto: user.profilePhoto || "", createdAt: user.createdAt });
 });
 
 router.put("/", async (req, res) => {
@@ -38,7 +38,21 @@ router.put("/", async (req, res) => {
     if (taken) return res.status(400).json({ message: "Email already in use" });
 
     const user = await User.findByIdAndUpdate(req.userId, { name, email }, { new: true });
-    res.json({ user: { id: user._id, name: user.name, email: user.email } });
+    res.json({ user: { id: user._id, name: user.name, email: user.email, profilePhoto: user.profilePhoto || "" } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.put("/photo", async (req, res) => {
+  try {
+    const image = typeof req.body.image === "string" ? req.body.image : "";
+    if (image && !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image))
+      return res.status(400).json({ message: "Use a JPG, PNG, or WebP photo." });
+    if (image.length > 1_500_000) return res.status(400).json({ message: "That photo is too large. Try a smaller one." });
+    const user = await User.findByIdAndUpdate(req.userId, { profilePhoto: image }, { new: true }).select("profilePhoto");
+    if (!user) return res.status(404).json({ message: "Not found" });
+    res.json({ profilePhoto: user.profilePhoto || "" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

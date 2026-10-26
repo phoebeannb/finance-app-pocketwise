@@ -25,7 +25,7 @@ router.post("/register", async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, password: hashed });
-    res.status(201).json({ token: makeToken(user._id), user: { id: user._id, name, email } });
+    res.status(201).json({ token: makeToken(user._id), user: { id: user._id, name, email, profilePhoto: "" } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -38,7 +38,7 @@ router.post("/login", async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password)))
       return res.status(401).json({ message: "Wrong email or password" });
 
-    res.json({ token: makeToken(user._id), user: { id: user._id, name: user.name, email } });
+    res.json({ token: makeToken(user._id), user: { id: user._id, name: user.name, email, profilePhoto: user.profilePhoto || "" } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

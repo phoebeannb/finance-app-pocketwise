@@ -249,7 +249,7 @@ export default function Dashboard() {
           </div>
 
           <div className="mb-2 mt-7 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold">This month</h3>
+            <h3 className="text-lg font-semibold">{monthLabel(month)}</h3>
             <MonthStepper month={month} onChange={setMonth} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

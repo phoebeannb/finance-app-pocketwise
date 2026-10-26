@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
-  LogOut, Plus, Wallet, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle,
+  LogOut, Plus, Wallet, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle, ChevronDown,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -30,7 +30,7 @@ const GROUPS = [
   { title: "Planning", links: [BUDGETS, BILLS, GOALS] },
   { title: "Analysis", links: [REPORTS] },
 ];
-const MORE = [ACCOUNTS, TRANSACTIONS, DEBTS, BILLS, GOALS, REPORTS, SETTINGS];
+const MORE = [ACCOUNTS, TRANSACTIONS, DEBTS, BILLS, GOALS, REPORTS];
 
 const daysUntil = (iso) => {
   const d = new Date();
@@ -98,9 +98,7 @@ function NavItem({ item, labels, badges }) {
 }
 
 // The side menu, used full-width on desktop and as an icon rail on tablets
-function SideNav({ labels, onToggle, badges, user, onLogout }) {
-  const name = user?.name || "";
-  const initials = name.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
+function SideNav({ labels, onToggle, badges }) {
   return (
     <div className="flex h-full flex-col p-3">
       <div className={`mb-6 flex items-center ${labels ? "justify-between px-1" : "flex-col gap-3"}`}>
@@ -127,24 +125,6 @@ function SideNav({ labels, onToggle, badges, user, onLogout }) {
         ))}
       </nav>
 
-      <div className={`mt-4 border-t border-white/10 pt-3 ${labels ? "" : "grid justify-items-center gap-2"}`}>
-        <NavItem item={SETTINGS} labels={labels} badges={badges} />
-        <div className={`mt-2 flex items-center gap-3 ${labels ? "px-1" : "flex-col"}`}>
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-zinc-950">
-            {initials}
-          </span>
-          {labels && (
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{name}</div>
-              <div className="truncate text-xs text-zinc-400">{user?.email}</div>
-            </div>
-          )}
-          <button type="button" onClick={onLogout} title="Log out" aria-label="Log out"
-            className="flex items-center gap-2 rounded-lg p-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white">
-            <LogOut size={18} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -180,6 +160,8 @@ export default function Layout() {
   const [focusReceipt, setFocusReceipt] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
   const [refresh, setRefresh] = useState(0);
   const [params, setParams] = useSearchParams();
   const badges = useBadges(`${location.pathname}-${refresh}`);
@@ -198,6 +180,7 @@ export default function Layout() {
   const openFull = (initial) => { setFullInitial(initial || null); setFocusReceipt(false); setQuickOpen(false); setFullOpen(true); };
   const requestLogout = () => {
     setMoreOpen(false);
+    setProfileOpen(false);
     setLogoutOpen(true);
   };
   const submitSearch = (e) => {
@@ -215,6 +198,13 @@ export default function Layout() {
   }, [params, setParams]);
 
   useEffect(() => { setMoreOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    const closeProfile = (event) => {
+      if (!profileRef.current?.contains(event.target)) setProfileOpen(false);
+    };
+    document.addEventListener("pointerdown", closeProfile);
+    return () => document.removeEventListener("pointerdown", closeProfile);
+  }, []);
 
   return (
     <QuickAddContext.Provider value={ctx}>
@@ -224,37 +214,53 @@ export default function Layout() {
         </a>
         {/* Desktop: full side menu */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-gradient-to-b from-slate-950 to-slate-900 text-white shadow-xl lg:block">
-          <SideNav labels badges={badges} user={user} onLogout={requestLogout} />
+          <SideNav labels badges={badges} />
         </aside>
 
         {/* Tablet: icon rail (tap the arrow to show names) */}
         <aside className={`sticky top-0 hidden h-screen shrink-0 bg-gradient-to-b from-slate-950 to-slate-900 text-white shadow-xl sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
-          <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} user={user} onLogout={requestLogout} />
+          <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} />
         </aside>
 
         <main id="main-content" tabIndex={-1} className="app-main min-w-0 flex-1 p-4 pb-28 outline-none sm:p-6 sm:pb-8 lg:p-8">
           <header className="mb-6 flex flex-wrap items-center gap-3">
-            <form onSubmit={submitSearch} className="relative min-w-[min(100%,16rem)] flex-1 sm:max-w-md">
-              <Search size={17} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <form onSubmit={submitSearch} className="relative min-w-[min(100%,18rem)] flex-1 sm:max-w-xl">
+              <Search size={17} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />
               <input
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search transactions"
                 aria-label="Search transactions"
-                className="h-10 w-full rounded-lg border border-transparent bg-slate-100 py-2 pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-500 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                className="h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 shadow-sm outline-none placeholder:text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </form>
-            <div className="ml-auto flex items-center gap-2">
-              <button type="button" onClick={() => setQuickOpen(true)}
-                className="flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700">
-                <Plus size={17} aria-hidden="true" /> <span className="hidden sm:inline">Quick</span>
-              </button>
+            <div className="relative ml-auto flex items-center gap-2" ref={profileRef}>
               <NotificationCenter compact />
-              <NavLink to="/settings?tab=profile" aria-label="Open profile" title="Profile"
+              <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Open profile menu"
+                aria-expanded={profileOpen} aria-haspopup="menu" title="Profile"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200">
-                <UserCircle size={23} aria-hidden="true" />
-              </NavLink>
+                {user?.profilePhoto
+                  ? <img src={user.profilePhoto} alt="" className="h-10 w-10 rounded-full object-cover" />
+                  : <UserCircle size={23} aria-hidden="true" />}
+              </button>
+              {profileOpen && (
+                <div role="menu" aria-label="Profile menu"
+                  className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                  <div className="border-b border-slate-100 px-3 py-2">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user?.name || "Your profile"}</p>
+                    <p className="break-all text-xs text-slate-500">{user?.email || "No email available"}</p>
+                  </div>
+                  <NavLink to="/settings?tab=profile" role="menuitem" onClick={() => setProfileOpen(false)}
+                    className="mt-1 flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    <Settings size={17} aria-hidden="true" /> Settings
+                  </NavLink>
+                  <button type="button" role="menuitem" onClick={requestLogout}
+                    className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-medium text-red-600 hover:bg-red-50">
+                    <LogOut size={17} aria-hidden="true" /> Log out
+                  </button>
+                </div>
+              )}
             </div>
           </header>
           {/* Changing the key reloads the page you're on, so new data shows up after saving */}
