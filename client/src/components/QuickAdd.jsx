@@ -174,7 +174,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
             <option value="">Select category</option>
             {all.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          {!category && <p className="mt-1.5 text-xs text-slate-600">No category? It waits in your inbox on the Overview.</p>}
+        
         </div>}
 
         {type === "transfer" && (
