@@ -15,6 +15,7 @@ import Modal from "./Modal";
 import Shortcuts from "./Shortcuts";
 import ConfirmModal from "./ConfirmModal";
 import NotificationCenter from "./NotificationCenter";
+import GlobalSearchModal from "./GlobalSearchModal";
 
 const OVERVIEW = { to: "/", label: "Overview", icon: LayoutDashboard, end: true };
 const ACCOUNTS = { to: "/accounts", label: "Accounts", icon: Landmark };
@@ -149,6 +150,7 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [wide, setWide] = useState(false); // tablet rail: show labels or not
   const [quickOpen, setQuickOpen] = useState(false);
   const [billQuickOpen, setBillQuickOpen] = useState(false);
@@ -180,7 +182,7 @@ export default function Layout() {
   const submitSearch = (e) => {
     e.preventDefault();
     const query = search.trim();
-    navigate(query ? `/transactions?q=${encodeURIComponent(query)}` : "/transactions");
+    if (query) setSearchOpen(true);
   };
 
   // Opened from the installed app's shortcut (/?add=1)
@@ -224,8 +226,8 @@ export default function Layout() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search transactions"
-                aria-label="Search transactions"
+                placeholder="Search"
+                aria-label="Search"
                 className="h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 shadow-sm outline-none placeholder:text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
             </form>
@@ -289,6 +291,7 @@ export default function Layout() {
         </nav>
 
         <Shortcuts onAdd={() => setQuickOpen(true)} onLogout={requestLogout} />
+        <GlobalSearchModal open={searchOpen} query={search.trim()} onClose={() => setSearchOpen(false)} onNavigate={(path) => { setSearchOpen(false); navigate(path); }} />
         <QuickAdd open={quickOpen} initial={quickInitial} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
         <ReceiptUploadModal open={receiptOpen} onClose={() => setReceiptOpen(false)} onSaved={saved} />
         <BillQuickAdd open={billQuickOpen} onClose={() => setBillQuickOpen(false)} onSaved={saved} />
