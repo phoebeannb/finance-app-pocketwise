@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Plus, Pencil, Trash2, Copy, PiggyBank, Search, SlidersHorizontal, Upload, X, ChevronLeft, ChevronRight, Paperclip, ReceiptText,
+  Plus, Pencil, Trash2, Copy, PiggyBank, Search, SlidersHorizontal, Upload, Download, X, ChevronLeft, ChevronRight, Paperclip, ReceiptText,
 } from "lucide-react";
 import api from "../api/axios";
 import { useQuickAdd } from "../context/QuickAddContext";
 import { formatMoney } from "../utils/format";
 import { fmtDate, fmtTime, relativeDay } from "../utils/datetime";
-import { monthLabel, monthNow } from "../utils/months";
 import { isSavings, txTitle } from "../utils/txDisplay";
 import { txAccount, txNote, hasNote, txSign, txColor } from "../utils/txTable";
 import { moodOf } from "../utils/moods";
@@ -31,13 +30,6 @@ const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-const dateInput = (date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-
 function useDebounced(value, ms = 300) {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -84,6 +76,7 @@ export default function Transactions() {
   const [focusGoal, setFocusGoal] = useState(false);
   const [focusReceipt, setFocusReceipt] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
 
   const { expense, income } = useCategories();
   const allCats = useMemo(() => [...new Set([...expense, ...income])].sort((a, b) => a.localeCompare(b)), [expense, income]);
@@ -94,21 +87,6 @@ export default function Transactions() {
 
   const update = (patch) => { setFilters((f) => ({ ...f, ...patch })); setPage(1); };
   const clearAll = () => { setFilters(emptyFilters); setUnsorted(false); setPage(1); };
-  const setPreset = (preset) => {
-    const today = new Date();
-    if (preset === "month") {
-      update({ from: dateInput(new Date(today.getFullYear(), today.getMonth(), 1)), to: dateInput(today) });
-    } else if (preset === "30days") {
-      const start = new Date(today);
-      start.setDate(start.getDate() - 29);
-      update({ from: dateInput(start), to: dateInput(today) });
-    } else if (preset === "uncategorized") {
-      setFilters((f) => ({ ...f, category: "", from: "", to: "", min: "", max: "", tag: "" }));
-      setUnsorted(true);
-      setPage(1);
-    }
-  };
-
   // A new address (for example from the command palette) replaces the filters
   const paramKey = params.toString();
   const first = useRef(true);
@@ -169,7 +147,7 @@ export default function Transactions() {
   const periodLabel = filters.from || filters.to
     ? `${filters.from ? day(filters.from) : "Start"} to ${filters.to ? day(filters.to) : "Today"}`
     : "All transactions";
-  const cardsPeriodLabel = filters.from || filters.to ? periodLabel : monthLabel(monthNow());
+  const cardsPeriodLabel = periodLabel;
   const chips = [
     unsorted && { key: "inbox", label: "No category yet", clear: () => { setUnsorted(false); setPage(1); } },
     filters.type !== "all" && { key: "type", label: cap(filters.type), clear: () => update({ type: "all" }) },
@@ -250,20 +228,36 @@ export default function Transactions() {
     }
   };
 
+  const exportCsv = async () => {
+    try {
+      const { data } = await api.get("/transactions/export", { params: queryParams, responseType: "blob" });
+      const url = URL.createObjectURL(data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `pocketwise-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch { toast.error("We couldn't export these transactions. Try again."); }
+  };
+
   return (
     <div className="w-full">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Transactions</h2>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setImportOpen(true)}
-            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <button onClick={openQuickAdd}
+            className="col-span-2 flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:col-span-1">
+            <Plus size={16} aria-hidden="true" /> Add transaction
+          </button>
+          <button type="button" onClick={() => setImportOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">
             <Upload size={16} aria-hidden="true" /> Import CSV
           </button>
-          <button onClick={openQuickAdd}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-            <Plus size={16} aria-hidden="true" /> Add transaction
+          <button type="button" onClick={exportCsv}
+            className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">
+            <Download size={16} aria-hidden="true" /> Export CSV
           </button>
         </div>
       </div>
@@ -272,28 +266,19 @@ export default function Transactions() {
 
       {data && data.total > 0 && (
         <div className="mb-4" aria-label="Transaction summary">
-          <p className="mb-2 text-sm font-medium text-slate-700">{cardsPeriodLabel}</p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className={`${card} p-5`}>
-            <div className="text-sm text-slate-600">Income</div>
-            <div className="mt-2 text-3xl font-semibold text-green-700">{formatMoney(data.totals.income)}</div>
-          </div>
-          <div className={`${card} p-5`}>
-            <div className="text-sm text-slate-600">Expenses</div>
-            <div className="mt-2 text-3xl font-semibold text-red-700">{formatMoney(data.totals.expenses)}</div>
-          </div>
-          <div className={`${card} p-5`}>
-            <div className="text-sm text-slate-600">Remaining</div>
-            <div className={`mt-2 text-3xl font-semibold ${data.totals.income - data.totals.expenses < 0 ? "text-red-700" : "text-green-700"}`}>
-              {formatMoney(data.totals.income - data.totals.expenses)}
-            </div>
-          </div>
-          </div>
+          <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-700">
+            <span className="w-full font-semibold sm:w-auto">{cardsPeriodLabel}</span>
+            <span className="hidden text-slate-400 sm:inline">·</span>
+            <span>Income <b className="tabular-nums text-green-700">{formatMoney(data.totals.income)}</b></span>
+            <span className="text-slate-400">·</span>
+            <span>Expenses <b className="tabular-nums text-slate-900">{formatMoney(data.totals.expenses)}</b></span>
+            <span className="text-slate-400">·</span>
+            <span>Net <b className={`tabular-nums ${data.totals.income - data.totals.expenses < 0 ? "text-amber-700" : "text-green-700"}`}>{formatMoney(data.totals.income - data.totals.expenses)}</b></span>
+          </p>
         </div>
       )}
 
-      <p className="mb-2 text-sm font-medium text-slate-700">{periodLabel}</p>
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+      <div className="mb-3 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={filters.q} onChange={(e) => update({ q: e.target.value })} placeholder="Search description, category, notes or tags"
@@ -306,19 +291,18 @@ export default function Transactions() {
           )}
         </div>
         <button onClick={() => setShowFilters((s) => !s)} aria-expanded={showFilters}
-          className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium ${showFilters || activeCount ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
+          className={`flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium sm:w-auto ${showFilters || activeCount ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>
           <SlidersHorizontal size={16} aria-hidden="true" /> Filters {activeCount > 0 && `(${activeCount})`}
         </button>
       </div>
 
-      <div className="mb-4">
-        <UnderlineTabs label="Type" value={filters.type} onChange={(type) => update({ type })} options={TYPE_TABS} />
-      </div>
-      <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1" aria-label="Quick filters">
-        <span className="shrink-0 text-xs font-medium text-slate-600">Quick filters:</span>
-        <button type="button" onClick={() => setPreset("month")} className="shrink-0 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">This month</button>
-        <button type="button" onClick={() => setPreset("30days")} className="shrink-0 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800">Last 30 days</button>
-        <button type="button" onClick={() => setPreset("uncategorized")} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium ${unsorted ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800"}`}>Needs category</button>
+      <div className="mb-3 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 overflow-x-auto">
+          <UnderlineTabs label="Type" value={filters.type} onChange={(type) => update({ type })} options={TYPE_TABS} />
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }} className={`rounded-md border px-2 py-1 text-xs font-medium ${selectMode ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-300 bg-white text-slate-600"}`}>Select</button>
+        </div>
       </div>
 
       {showFilters && (
@@ -379,10 +363,12 @@ export default function Transactions() {
 
       {data && data.total > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input type="checkbox" checked={allOnPage} onChange={toggleAll} className="h-4 w-4 accent-indigo-600" />
-            Select all on this page
-          </label>
+          {selectMode ? (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={allOnPage} onChange={toggleAll} className="h-4 w-4 accent-indigo-600" />
+              Select all
+            </label>
+          ) : <span className="text-sm text-slate-600">{data.total} transactions</span>}
           <span className="text-sm text-slate-600">Showing {start}–{end} of {data.total}</span>
         </div>
       )}
@@ -429,32 +415,34 @@ export default function Transactions() {
               </h3>
               {totals && (totals.expenses > 0 || totals.income > 0) && (
                 <span className="text-sm text-slate-600">
-                  {totals.expenses > 0 && <>Spent <b className="text-red-700">{formatMoney(totals.expenses)}</b></>}
+                  {totals.expenses > 0 && <>Spent <b className="text-slate-900 tabular-nums">{formatMoney(totals.expenses)}</b></>}
                   {totals.expenses > 0 && totals.income > 0 && " · "}
                   {totals.income > 0 && <>Earned <b className="text-green-700">{formatMoney(totals.income)}</b></>}
                 </span>
               )}
             </div>
 
-            <ul className={`${card} divide-y divide-slate-100 overflow-hidden`}>
+            <ul className="divide-y divide-slate-200 border-y border-slate-200">
               {rows.map((t) => {
                 const mood = moodOf(t.mood);
                 const meta = [txAccount(t) !== "—" ? txAccount(t) : "", fmtTime(t.date)].filter(Boolean).join(" · ");
                 return (
-                  <li key={t._id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 hover:bg-slate-50">
-                    <input type="checkbox" checked={selected.has(t._id)} onChange={() => toggle(t._id)}
-                      aria-label={`Select ${txTitle(t)} ${formatMoney(t.amount)}`} className="h-4 w-4 shrink-0 accent-indigo-600" />
+                  <li key={t._id} className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 px-1 py-4 hover:bg-slate-50 sm:grid-cols-[auto_auto_minmax(0,1fr)_8rem_8rem] sm:gap-3 sm:px-2">
+                    <span className={`${selectMode ? "flex" : "hidden sm:flex"} h-4 w-4 items-center justify-center`}>
+                      {selectMode && <input type="checkbox" checked={selected.has(t._id)} onChange={() => toggle(t._id)}
+                        aria-label={`Select ${txTitle(t)} ${formatMoney(t.amount)}`} className="h-4 w-4 accent-indigo-600" />}
+                    </span>
                     <CategoryBadge t={t} />
-                    <div className="min-w-0 flex-1 basis-44">
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2">
-                        <span className="font-medium text-slate-900">{txTitle(t)}</span>
+                        <span className="truncate font-medium text-slate-900">{txTitle(t)}</span>
                         {mood && <span role="img" aria-label={mood.label} title={mood.label}>{mood.emoji}</span>}
                         {t.hasReceipt && (
                           <button onClick={() => viewReceipt(t)} aria-label="View receipt photo" title="View receipt photo"
                             className="rounded p-0.5 text-slate-600 hover:bg-slate-200"><Paperclip size={14} aria-hidden="true" /></button>
                         )}
                       </div>
-                      <div className={`truncate text-sm ${hasNote(t) ? "text-slate-700" : "italic text-slate-600"}`} title={txNote(t)}>{txNote(t)}</div>
+                      {txNote(t) && <div className={`truncate text-sm ${hasNote(t) ? "text-slate-700" : "italic text-slate-600"}`} title={txNote(t)}>{txNote(t)}</div>}
                       {meta && <div className="text-xs text-slate-600">{meta}</div>}
                       {t.tags?.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
@@ -466,8 +454,8 @@ export default function Transactions() {
                       )}
                       {t.notes && <div className="mt-0.5 truncate text-xs text-slate-600" title={t.notes}>{t.notes}</div>}
                     </div>
-                    <div className={`ml-auto shrink-0 text-right text-lg font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</div>
-                    <div className="flex w-full justify-end gap-1 sm:w-auto">
+                    <div className={`ml-auto shrink-0 text-right text-base font-semibold tabular-nums sm:text-lg ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</div>
+                    <div className="col-span-full flex justify-end gap-1 border-t border-slate-100 pt-1 opacity-100 sm:col-span-1 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100">
                       {!isSavings(t) && <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(t)} />}
                       {!isSavings(t) && <IconButton icon={Copy} label="Duplicate" onClick={() => duplicate(t)} />}
                       {!t.hasReceipt && !isSavings(t) && <IconButton icon={Paperclip} label="Add receipt" onClick={() => openAddReceipt(t)} />}

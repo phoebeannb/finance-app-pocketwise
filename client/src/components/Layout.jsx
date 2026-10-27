@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
-  LogOut, Plus, Wallet, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle, ChevronDown,
+  LogOut, Plus, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle, ChevronDown,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -68,8 +68,8 @@ const badgeColor = (key) => (key === "budgets" ? "bg-red-600" : "bg-amber-600");
 function Brand({ labels }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-950">
-        <Wallet size={17} aria-hidden="true" />
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center">
+        <img src="/wallet_logo.png" alt="" className="h-14 w-14 object-contain brightness-0 invert" />
       </span>
       {labels && <span className="text-lg font-semibold">PocketWise</span>}
     </div>
@@ -82,7 +82,7 @@ function NavItem({ item, labels, badges }) {
     <NavLink to={item.to} end={item.end} title={labels ? undefined : item.label} aria-label={labels ? undefined : item.label}
       className={({ isActive }) =>
         `relative flex items-center rounded-lg text-sm font-medium ${labels ? "gap-3 px-3 py-2.5" : "h-11 w-11 justify-center"} ${
-          isActive ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5 hover:text-white"
+          isActive ? "bg-indigo-500/25 text-white before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-indigo-300" : "text-zinc-300 hover:bg-white/5 hover:text-white"
         }`}>
       <item.icon className="nav-icon" size={18} aria-hidden="true" />
       {labels && <span className="flex-1">{item.label}</span>}
@@ -114,10 +114,11 @@ function SideNav({ labels, onToggle, badges }) {
         )}
       </div>
 
-      <nav aria-label="Main" className="flex-1 space-y-4 overflow-y-auto">
+      <nav aria-label="Main" className="flex-1 space-y-1 overflow-y-auto">
         {GROUPS.map((g) => (
           <div key={g.title}>
-            <div className={`grid gap-1 ${labels ? "" : "justify-items-center"}`}>
+            {labels && <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{g.title}</div>}
+            <div className="grid gap-1">
               {g.links.map((l) => <NavItem key={l.to} item={l} labels={labels} badges={badges} />)}
             </div>
           </div>
@@ -226,10 +227,11 @@ export default function Layout() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search"
-                aria-label="Search"
+                placeholder="Search transactions, bills…"
+                aria-label="Search transactions, bills, accounts and more"
                 className="h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 shadow-sm outline-none placeholder:text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
               />
+              <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 sm:block">Ctrl K</kbd>
             </form>
             <div className="relative ml-auto flex items-center gap-2" ref={profileRef}>
               <NotificationCenter compact />

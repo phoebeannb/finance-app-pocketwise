@@ -74,7 +74,7 @@ export default function Shortcuts({ onAdd, onLogout }) {
 
   return (
     <>
-      <Modal open={paletteOpen} onClose={() => setPaletteOpen(false)} title="Command palette" size="max-w-lg">
+      <Modal open={paletteOpen} onClose={() => setPaletteOpen(false)} title="Command Palette" size="max-w-lg">
         <div className="relative">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setActive(0); }} onKeyDown={onInputKey}

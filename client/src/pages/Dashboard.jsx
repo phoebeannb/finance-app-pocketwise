@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine, WalletCards, ReceiptText, PiggyBank, HeartPulse } from "lucide-react";
+import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine, WalletCards, ReceiptText, PiggyBank, HeartPulse, AlertTriangle } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useQuickAdd } from "../context/QuickAddContext";
@@ -16,7 +16,6 @@ import MonthStepper from "../components/MonthStepper";
 import { CategoryBadge } from "../components/CategoryLabel";
 import Skeleton from "../components/Skeleton";
 import { Bar, Empty, ErrorBar, card } from "../components/ui";
-import Ring from "../components/Ring";
 
 const SPENDABLE = ["Bank Account", "Other"];
 
@@ -35,7 +34,6 @@ const dueLabel = (iso) => {
 function MetricCard({ label, value, icon: Icon, tone, iconTone, detail, children }) {
   return (
     <div className={`${card} relative overflow-hidden p-5`}>
-      <div className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full ${tone} opacity-60`} aria-hidden="true" />
       <div className="relative flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
@@ -82,21 +80,22 @@ function SafeCard({ safe }) {
 
   const over = safe.safeToday <= 0;
   const used = safe.perDay > 0 ? Math.min(100, (safe.spentToday / safe.perDay) * 100) : over ? 100 : 0;
+  const safeTone = over ? "text-amber-700" : safe.safeToday < safe.perDay * 0.25 ? "text-amber-700" : "text-green-700";
   return (
     <div className={`${card} h-full p-5 sm:p-6`}>
       <div className="text-sm text-slate-600">Safe to spend today</div>
-      <div className={`mt-2 text-4xl font-semibold sm:text-5xl ${over ? "text-red-700" : "text-green-700"}`}>
-        {formatMoney(Math.max(0, safe.safeToday))}
+      <div className={`mt-2 text-4xl font-semibold sm:text-5xl ${safeTone}`}>
+        {over ? formatMoney(Math.abs(safe.safeToday)) : formatMoney(safe.safeToday)}
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
         {over
           ? safe.left < 0
-            ? `Your bills this month are ${formatMoney(-safe.left)} more than the money you have.`
-            : "You've used up today's allowance."
+            ? `You're ${formatMoney(Math.abs(safe.safeToday))} over today. Tomorrow's allowance adjusts.`
+            : "You've used up today's allowance. Tomorrow's allowance adjusts."
           : `After bills, you can spend about ${formatMoney(safe.perDay)} per day for the rest of the month.`}
       </p>
       <div className="mt-4 flex items-center gap-3">
-        <div className="flex-1"><Bar pct={used} color={used >= 100 ? "bg-red-600" : "bg-green-600"} label="Today's allowance used" /></div>
+        <div className="flex-1"><Bar pct={used} color={used >= 100 || used >= 75 ? "bg-amber-500" : "bg-green-600"} label="Today's allowance used" /></div>
         <span className="text-xs text-slate-600">{formatMoney(safe.spentToday)} spent today</span>
       </div>
     </div>
@@ -158,8 +157,8 @@ export default function Dashboard() {
   const available = spendable.reduce((s, a) => s + a.currentBalance, 0);
   const isEmpty = summary && accounts && accounts.length === 0 && recent.length === 0;
   const score = healthScore(summary, safe, budgets, ins);
-  const scoreLabel = score >= 80 ? "Strong" : score >= 60 ? "On track" : score >= 40 ? "Needs attention" : "At risk";
-  const scoreColor = score >= 80 ? "text-green-700" : score >= 60 ? "text-indigo-700" : score >= 40 ? "text-amber-700" : "text-red-700";
+  const scoreLabel = score >= 80 ? "Strong" : score >= 60 ? "On track" : "Needs attention";
+  const scoreColor = score >= 80 ? "text-green-700" : score >= 60 ? "text-indigo-700" : "text-amber-700";
   const setupActions = [
     !accounts?.length && { text: "Add a bank or wallet so PocketWise can calculate your available balance.", to: "/accounts", action: "Add account" },
     !budgets?.length && { text: "Set a monthly budget to see how much you can safely spend.", to: "/budgets", action: "Set budget" },
@@ -167,11 +166,13 @@ export default function Dashboard() {
   ].filter(Boolean);
   const attention = [
     safe?.safeToday <= 0 && {
+      severity: "urgent",
       text: safe.left < 0 ? "Your planned bills are higher than your available money." : "You have used today's safe-to-spend amount.",
       to: "/budgets",
       action: "Review spending",
     },
     ...(budgets || []).filter((b) => b.spent >= b.limit * 0.8).slice(0, 2).map((b) => ({
+      severity: b.spent >= b.limit ? "urgent" : "attention",
       text: b.spent >= b.limit
         ? `${b.category} is over budget by ${formatMoney(b.spent - b.limit)}.`
         : `${b.category} is at ${Math.round((b.spent / b.limit) * 100)}% of its budget.`,
@@ -184,22 +185,25 @@ export default function Dashboard() {
       const days = Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
       return days <= (b.reminderDays ?? 3);
     }).slice(0, 2).map((b) => ({
+      severity: "attention",
       text: `${b.name} is ${dueLabel(b.nextDate).toLowerCase()}.`,
       to: "/bills",
       action: "View bills",
     })),
     ...(ins?.billsDue?.items || []).filter((b) => b.valueRating === "unused").slice(0, 1).map((b) => ({
+      severity: "attention",
       text: `${b.name} is marked unused and is still due soon.`,
       to: "/bills",
       action: "Review subscription",
     })),
     ...spendable.filter((a) => a.currentBalance < 0).slice(0, 1).map((a) => ({
+      severity: "urgent",
       text: `${a.name} has a negative balance of ${formatMoney(Math.abs(a.currentBalance))}.`,
       to: "/accounts",
       action: "View account",
     })),
   ].filter(Boolean);
-  const nextActions = [...attention, ...setupActions].slice(0, 4);
+  const nextActions = attention.length ? attention.slice(0, 4) : setupActions.slice(0, 4);
   return (
     <div className="w-full">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -207,17 +211,17 @@ export default function Dashboard() {
           <p className="mb-2 inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">
             {new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" })}
           </p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{greeting()}, {firstName}</h2>
+          <h2 className="text-[30px] font-bold tracking-tight">{greeting()}, {firstName}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => openAdd({ type: "expense" })}
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md">
-              <ArrowDownLeft size={16} aria-hidden="true" /> Add expense
+              <ArrowUpRight size={16} aria-hidden="true" /> Add Expense
             </button>
             <button onClick={() => openAdd({ type: "income" })}
               className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50">
-              <ArrowUpRight size={16} aria-hidden="true" /> Add income
+              <ArrowDownLeft size={16} aria-hidden="true" /> Add Income
             </button>
             <button onClick={openReceipt} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50">
               <ScanLine size={16} aria-hidden="true" /> Scan Receipt
@@ -262,7 +266,7 @@ export default function Dashboard() {
               <div className={`mt-2 text-3xl font-semibold ${available < 0 ? "text-red-700" : "text-slate-900"}`}>
                 {spendable.length ? formatMoney(available) : "—"}
               </div>
-              <Link to="/accounts" className="mt-3 inline-block text-sm font-medium text-indigo-700 hover:underline">See accounts</Link>
+              <Link to="/accounts" className="mt-3 inline-block text-sm font-medium text-indigo-700 hover:underline">See Accounts</Link>
             </div>
           </div>
 
@@ -271,25 +275,21 @@ export default function Dashboard() {
             <MonthStepper month={month} onChange={setMonth} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label={`Income`} value={formatMoney(summary.income)}
+            <MetricCard label="Income" value={formatMoney(summary.income)}
               icon={WalletCards} tone="bg-emerald-100" iconTone="bg-emerald-100 text-emerald-700"
-              detail={<><span className="font-medium text-emerald-700">Money in</span><Bar pct={Math.max(summary.income, summary.expenses) ? (summary.income / Math.max(summary.income, summary.expenses)) * 100 : 0} color="bg-emerald-500" label="Income compared with the larger monthly total" /></>}>
+              detail={<span className="font-medium text-emerald-700">Money in this month</span>}>
             </MetricCard>
-            <MetricCard label={`Expenses`} value={formatMoney(summary.expenses)}
+            <MetricCard label="Expenses" value={formatMoney(summary.expenses)}
               icon={ReceiptText} tone="bg-rose-100" iconTone="bg-rose-100 text-rose-700"
-              detail={<><span className="font-medium text-rose-700">Money out</span><Bar pct={Math.max(summary.income, summary.expenses) ? (summary.expenses / Math.max(summary.income, summary.expenses)) * 100 : 0} color="bg-rose-500" label="Expenses compared with the larger monthly total" /></>}>
+              detail={<span className="font-medium text-slate-600">Money out this month</span>}>
             </MetricCard>
-            <MetricCard label={`Savings Rate `}
+            <MetricCard label="Savings Rate"
               value={summary.income > 0 ? `${Math.round((summary.balance / summary.income) * 100)}%` : "—"}
               icon={PiggyBank} tone="bg-indigo-100" iconTone="bg-indigo-100 text-indigo-700"
-              detail={ins?.before ? `${ins.now.expenses < ins.before.expenses ? "Spending is down" : "Spending is up"} ${formatMoney(Math.abs(ins.now.expenses - ins.before.expenses))} vs. last month` : "Income left after expenses"}>
-              <Ring pct={summary.income > 0 ? Math.max(0, Math.min(100, (summary.balance / summary.income) * 100)) : 0} size={52} stroke={6} label="Savings rate" />
-            </MetricCard>
+              detail={summary.income > 0 && summary.balance < 0 ? "Spending is above income" : "Income left after expenses"} />
             <MetricCard label="Financial Health" value={score == null ? "—" : `${score}/100`}
               icon={HeartPulse} tone="bg-amber-100" iconTone={`${scoreColor} bg-amber-100`}
-              detail={<span className={`font-semibold ${scoreColor}`}>{scoreLabel}</span>}>
-              <Ring pct={score || 0} size={52} stroke={6} label="Financial health score" />
-            </MetricCard>
+              detail={<span className={`font-semibold ${scoreColor}`}>{scoreLabel} · <span className="font-normal text-slate-500">based on spending, budgets and safe-to-spend</span></span>} />
           </div>
 
           {nextActions.length > 0 && (
@@ -298,11 +298,14 @@ export default function Dashboard() {
                 <AlertCircle size={18} className="text-amber-700" aria-hidden="true" />
                 <h3 id="attention-title" className="text-base font-semibold">What should I do next?</h3>
               </div>
-              <ul className="divide-y divide-amber-200/70">
+              <ul className="divide-y divide-slate-200">
                 {nextActions.map((item) => (
-                  <li key={item.text} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
-                    <span className="text-sm text-slate-700">{item.text}</span>
-                    <Link to={item.to} className="text-sm font-medium text-indigo-700 hover:underline">{item.action}</Link>
+                  <li key={item.text} className="flex flex-wrap items-center justify-between gap-2 border-slate-200 py-2 first:pt-0 last:pb-0">
+                    <span className="flex items-center gap-2 text-sm text-slate-700">
+                      {item.severity === "urgent" ? <AlertTriangle size={16} className="text-amber-600" aria-hidden="true" /> : <AlertCircle size={16} className="text-slate-400" aria-hidden="true" />}
+                      {item.text}
+                    </span>
+                    <Link to={item.to} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">{item.action}</Link>
                   </li>
                 ))}
               </ul>
@@ -314,7 +317,7 @@ export default function Dashboard() {
           <div className="mt-5 grid gap-5 xl:grid-cols-2">
             <section className={`${card} p-4 sm:p-5`} aria-labelledby="due-title">
               <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h3 id="due-title" className="text-lg font-semibold">Bills due soon</h3>
+                <h3 id="due-title" className="text-lg font-semibold">Bills Due</h3>
                 <Link to="/bills" className="text-sm font-medium text-indigo-700 hover:underline">Manage Bills</Link>
               </div>
               {ins?.billsDue?.items.length ? (

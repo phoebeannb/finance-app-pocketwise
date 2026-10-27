@@ -40,8 +40,12 @@ const AUTO_LABEL = {
 export const hasNote = (t) => !!(t.description && t.description.trim());
 
 export function txNote(t) {
+  if (hasNote(t) && t.category && t.description.trim().toLowerCase() === t.category.trim().toLowerCase()) return "";
   const parts = [];
-  if (hasNote(t)) parts.push(t.description.trim());
+  if (hasNote(t) && t.category && t.description.trim().toLowerCase() !== t.category.trim().toLowerCase()) {
+    const savingsTarget = t.type === "transfer" && isSavings(t) && t.description.match(/\bto\s+(.+)$/i)?.[1];
+    parts.push(savingsTarget ? `→ ${savingsTarget}` : t.description.trim());
+  } else if (hasNote(t) && !t.category) parts.push(t.description.trim());
   else if (t.type === "transfer") parts.push(isSavings(t) ? "Savings" : "Transfer between accounts");
   else if (!t.category) parts.push("No description provided");
   else parts.push(AUTO_LABEL[t.category.toLowerCase()] || `${t.category} (no description)`);
@@ -50,4 +54,4 @@ export function txNote(t) {
 }
 
 export const txSign = (t) => (t.type === "income" ? "+" : t.type === "expense" ? "-" : "");
-export const txColor = (t) => (t.type === "income" ? "text-green-600" : t.type === "transfer" ? "text-slate-700" : "text-red-600");
+export const txColor = (t) => (t.type === "income" ? "text-green-600" : "text-slate-900");

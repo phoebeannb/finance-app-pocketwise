@@ -58,7 +58,6 @@ body {
     radial-gradient(circle at 100% 0%, rgb(224 231 255 / 0.36), transparent 26rem),
     #f5f7fb;
   color: #1b1f2a;
-  font-variant-numeric: tabular-nums; /* digits line up in columns */
   -webkit-font-smoothing: antialiased;
 }
 
