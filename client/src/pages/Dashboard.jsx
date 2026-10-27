@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine } from "lucide-react";
+import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine, WalletCards, ReceiptText, PiggyBank, HeartPulse } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useQuickAdd } from "../context/QuickAddContext";
@@ -16,6 +16,7 @@ import MonthStepper from "../components/MonthStepper";
 import { CategoryBadge } from "../components/CategoryLabel";
 import Skeleton from "../components/Skeleton";
 import { Bar, Empty, ErrorBar, card } from "../components/ui";
+import Ring from "../components/Ring";
 
 const SPENDABLE = ["Bank Account", "Other"];
 
@@ -30,6 +31,27 @@ const dueLabel = (iso) => {
   const n = Math.round((new Date(iso).getTime() - today) / 86400000);
   return n < 0 ? "Overdue" : n === 0 ? "Due today" : n === 1 ? "Tomorrow" : `In ${n} days`;
 };
+
+function MetricCard({ label, value, icon: Icon, tone, iconTone, detail, children }) {
+  return (
+    <div className={`${card} relative overflow-hidden p-5`}>
+      <div className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full ${tone} opacity-60`} aria-hidden="true" />
+      <div className="relative flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTone}`}>
+              <Icon size={18} aria-hidden="true" />
+            </span>
+            <span>{label}</span>
+          </div>
+          <div className="mt-4 truncate text-3xl font-bold tracking-tight text-slate-900">{value}</div>
+        </div>
+        {children}
+      </div>
+      {detail && <div className="relative mt-3 text-xs text-slate-600">{detail}</div>}
+    </div>
+  );
+}
 
 function healthScore(summary, safe, budgets, insights) {
   if (!summary) return null;
@@ -198,7 +220,7 @@ export default function Dashboard() {
               <ArrowUpRight size={16} aria-hidden="true" /> Add income
             </button>
             <button onClick={openReceipt} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50">
-              <ScanLine size={16} aria-hidden="true" /> Scan receipt
+              <ScanLine size={16} aria-hidden="true" /> Scan Receipt
             </button>
           </div>
         </div>
@@ -240,10 +262,6 @@ export default function Dashboard() {
               <div className={`mt-2 text-3xl font-semibold ${available < 0 ? "text-red-700" : "text-slate-900"}`}>
                 {spendable.length ? formatMoney(available) : "—"}
               </div>
-              <p className="mt-1 text-xs text-slate-600">
-                {spendable.length ? `Across ${spendable.length} bank account${spendable.length === 1 ? "" : "s"} and wallet${spendable.length === 1 ? "" : "s"}` : "Add a bank account to see this"}
-              </p>
-              {summary.saved > 0 && <p className="mt-2 text-xs font-medium text-green-700">{formatMoney(summary.saved)} moved to your goals this month</p>}
               <Link to="/accounts" className="mt-3 inline-block text-sm font-medium text-indigo-700 hover:underline">See accounts</Link>
             </div>
           </div>
@@ -253,30 +271,25 @@ export default function Dashboard() {
             <MonthStepper month={month} onChange={setMonth} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className={`${card} p-5`}>
-              <div className="text-sm text-slate-600">Income · {monthLabel(month)}</div>
-              <div className="mt-2 text-3xl font-semibold text-green-700">{formatMoney(summary.income)}</div>
-            </div>
-            <div className={`${card} p-5`}>
-              <div className="text-sm text-slate-600">Expenses · {monthLabel(month)}</div>
-              <div className="mt-2 text-3xl font-semibold text-slate-900">{formatMoney(summary.expenses)}</div>
-            </div>
-            <div className={`${card} p-5`}>
-              <div className="text-sm text-slate-600">Savings rate · {monthLabel(month)}</div>
-              <div className={`mt-2 text-3xl font-semibold ${summary.income > 0 && summary.balance < 0 ? "text-red-700" : "text-green-700"}`}>
-                {summary.income > 0 ? `${Math.round((summary.balance / summary.income) * 100)}%` : "—"}
-              </div>
-              {ins?.before && (
-                <p className="mt-1 text-xs text-slate-600">
-                  {ins.now.expenses < ins.before.expenses ? "Spending is down" : "Spending is up"} {formatMoney(Math.abs(ins.now.expenses - ins.before.expenses))} vs. last month
-                </p>
-              )}
-            </div>
-            <div className={`${card} p-5`}>
-              <div className="text-sm text-slate-600">Financial Health</div>
-              <div className={`mt-2 text-3xl font-semibold ${scoreColor}`}>{score}/100</div>
-              <p className={`mt-1 text-xs font-medium ${scoreColor}`}>{scoreLabel}</p>
-            </div>
+            <MetricCard label={`Income`} value={formatMoney(summary.income)}
+              icon={WalletCards} tone="bg-emerald-100" iconTone="bg-emerald-100 text-emerald-700"
+              detail={<><span className="font-medium text-emerald-700">Money in</span><Bar pct={Math.max(summary.income, summary.expenses) ? (summary.income / Math.max(summary.income, summary.expenses)) * 100 : 0} color="bg-emerald-500" label="Income compared with the larger monthly total" /></>}>
+            </MetricCard>
+            <MetricCard label={`Expenses`} value={formatMoney(summary.expenses)}
+              icon={ReceiptText} tone="bg-rose-100" iconTone="bg-rose-100 text-rose-700"
+              detail={<><span className="font-medium text-rose-700">Money out</span><Bar pct={Math.max(summary.income, summary.expenses) ? (summary.expenses / Math.max(summary.income, summary.expenses)) * 100 : 0} color="bg-rose-500" label="Expenses compared with the larger monthly total" /></>}>
+            </MetricCard>
+            <MetricCard label={`Savings Rate `}
+              value={summary.income > 0 ? `${Math.round((summary.balance / summary.income) * 100)}%` : "—"}
+              icon={PiggyBank} tone="bg-indigo-100" iconTone="bg-indigo-100 text-indigo-700"
+              detail={ins?.before ? `${ins.now.expenses < ins.before.expenses ? "Spending is down" : "Spending is up"} ${formatMoney(Math.abs(ins.now.expenses - ins.before.expenses))} vs. last month` : "Income left after expenses"}>
+              <Ring pct={summary.income > 0 ? Math.max(0, Math.min(100, (summary.balance / summary.income) * 100)) : 0} size={52} stroke={6} label="Savings rate" />
+            </MetricCard>
+            <MetricCard label="Financial Health" value={score == null ? "—" : `${score}/100`}
+              icon={HeartPulse} tone="bg-amber-100" iconTone={`${scoreColor} bg-amber-100`}
+              detail={<span className={`font-semibold ${scoreColor}`}>{scoreLabel}</span>}>
+              <Ring pct={score || 0} size={52} stroke={6} label="Financial health score" />
+            </MetricCard>
           </div>
 
           {nextActions.length > 0 && (

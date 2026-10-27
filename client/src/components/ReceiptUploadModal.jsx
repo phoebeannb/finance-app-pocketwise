@@ -105,7 +105,7 @@ export default function ReceiptUploadModal({ open, onClose, onSaved }) {
   }[status];
 
   return (
-    <Modal open={open} onClose={busy ? () => {} : onClose} title={status === "done" ? "Expense added" : "Scan receipt"}>
+    <Modal open={open} onClose={busy ? () => {} : onClose} title={status === "done" ? "Expense added" : "Scan Receipt"}>
       <div className="space-y-4">
         {status === "done" && added ? (
           <>
@@ -144,7 +144,7 @@ export default function ReceiptUploadModal({ open, onClose, onSaved }) {
         ) : (
           <>
         <p className="text-sm leading-6 text-slate-600">
-          Upload a receipt photo and PocketWise will scan the total, categorize the expense, and add it automatically.
+          Upload a receipt to automatically scan and record your expense.
         </p>
         <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={pick} className="hidden" />
         {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
