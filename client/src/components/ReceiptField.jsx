@@ -8,12 +8,25 @@ import { scanReceipt } from "../utils/receiptOcr";
 const btn = "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50";
 
 // state: { status: "none" | "existing" | "new" | "removed", data? }
-export default function ReceiptField({ txId, state, onChange, autoFocus = false, onScan }) {
+export default function ReceiptField({ txId, state, onChange, autoFocus = false, autoScan = false, onScan }) {
   const inputRef = useRef(null);
   const attachButtonRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState(null); // photo already saved on this transaction, once opened
   const [scanning, setScanning] = useState(false);
+
+  const runScan = async (image) => {
+    if (!image || !onScan) return;
+    setScanning(true);
+    try {
+      await onScan(await scanReceipt(image, (progress) => setBusy(progress < 1)));
+    } catch {
+      toast.error("We couldn't read that receipt. You can still enter the details manually.");
+    } finally {
+      setScanning(false);
+      setBusy(false);
+    }
+  };
 
   const pick = async (e) => {
     const file = e.target.files[0];
@@ -21,12 +34,15 @@ export default function ReceiptField({ txId, state, onChange, autoFocus = false,
     if (!file) return;
     setBusy(true);
     try {
-      onChange({ status: "new", data: await resizeToDataUrl(file) });
+      const image = await resizeToDataUrl(file);
+      onChange({ status: "new", data: image });
       setShown(null);
+      if (autoScan) await runScan(image);
     } catch {
       toast.error("That file isn't a photo we can read. Try a JPG or PNG.");
-    } finally {
       setBusy(false);
+    } finally {
+      if (!autoScan) setBusy(false);
     }
   };
 
@@ -44,16 +60,7 @@ export default function ReceiptField({ txId, state, onChange, autoFocus = false,
 
   const scan = async () => {
     const image = state.status === "new" ? state.data : shown;
-    if (!image || !onScan) return;
-    setScanning(true);
-    try {
-      onScan(await scanReceipt(image, (progress) => setBusy(progress < 1)));
-    } catch {
-      toast.error("We couldn't read that receipt. You can still enter the details manually.");
-    } finally {
-      setScanning(false);
-      setBusy(false);
-    }
+    await runScan(image);
   };
 
   const picture = state.status === "new" ? state.data : state.status === "existing" ? shown : null;

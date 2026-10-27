@@ -12,6 +12,7 @@ import CategoryModal from "./CategoryModal";
 import TagInput from "./TagInput";
 import ReceiptField from "./ReceiptField";
 import MoodPrompt from "./MoodPrompt";
+import TransactionConfirmation from "./TransactionConfirmation";
 
 const LAST_KEY = "pw_last_account";
 
@@ -51,6 +52,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
   const [splits, setSplits] = useState([{ category: "", amount: "" }, { category: "", amount: "" }]);
   const [catOpen, setCatOpen] = useState(false);
   const [moodPromptId, setMoodPromptId] = useState(null);
+  const [confirmation, setConfirmation] = useState(null);
   const goalSelectRef = useRef(null);
   const { expense, income, reload } = useCategories();
   const { prefs } = usePrefs();
@@ -62,6 +64,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
     if (!open) return;
     setError("");
     setHint("");
+    setConfirmation(null);
     reload();
     Promise.all([api.get("/accounts"), api.get("/goals")]).then(([accountsRes, goalsRes]) => {
       setAccounts(accountsRes.data);
@@ -158,11 +161,28 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
   const selectedGoal = goals.find((goal) => goal._id === form.goalId);
   const selectedAccount = accounts.find((account) => account._id === form.account);
   const goalAmount = Number(form.goalAmount || 0);
-  const applyReceiptScan = (data) => setForm((current) => ({
-    ...current,
-    amount: data.amount ? String(data.amount) : current.amount,
-    description: data.description && !current.description ? data.description : current.description,
-  }));
+  const applyReceiptScan = async (data) => {
+    const description = data.description || "";
+    setForm((current) => ({
+      ...current,
+      amount: data.amount ? String(data.amount) : current.amount,
+      description: description && !current.description ? description : current.description,
+    }));
+    if (!description || editing) return;
+    try {
+      const { data: suggestion } = await api.get("/transactions/suggest", {
+        params: { description, type: "expense" },
+      });
+      if (suggestion.category) {
+        setForm((current) => ({ ...current, category: current.category || suggestion.category }));
+        setHint(suggestion.source === "history"
+          ? "Category filled in from a previous expense."
+          : "Category suggested from the receipt description.");
+      }
+    } catch {
+      // The description and amount are still usable if categorization is unavailable.
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -214,8 +234,21 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       }
       toast.success(editing ? "Transaction updated." : "Transaction added.");
       onSaved();
-      onClose();
-      if (!editing && !isTransfer) setTimeout(() => setMoodPromptId(id), 0);
+      if (editing) {
+        onClose();
+      } else {
+        setConfirmation({
+          type: form.type,
+          amount,
+          category: isTransfer ? "" : (splitEnabled ? "Split transaction" : form.category),
+          description: form.description,
+          date: res.data.date,
+          accountName: accounts.find((item) => item._id === form.account)?.name,
+          toAccountName: accounts.find((item) => item._id === form.toAccount)?.name,
+          receiptAttached: receipt.status === "new",
+          transactionId: id,
+        });
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
     } finally {
@@ -225,7 +258,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={editing ? "Edit transaction" : "Add transaction"} closeOnEsc={!catOpen}>
+      <Modal open={open && !confirmation} onClose={onClose} title={editing ? "Edit transaction" : "Add transaction"} closeOnEsc={!catOpen}>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <p role="alert" aria-live="assertive" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
@@ -387,7 +420,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
           </Field>
 
           <Field label="Receipt photo (optional)">
-            <ReceiptField txId={editing?._id} state={receipt} onChange={setReceipt} autoFocus={focusReceipt} onScan={applyReceiptScan} />
+            <ReceiptField txId={editing?._id} state={receipt} onChange={setReceipt} autoFocus={focusReceipt} autoScan={focusReceipt} onScan={applyReceiptScan} />
           </Field>
 
           <Field label="Date & time" htmlFor="tx-date">
@@ -400,6 +433,17 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
           </button>
         </form>
       </Modal>
+      <TransactionConfirmation
+        open={Boolean(confirmation)}
+        transaction={confirmation}
+        onDone={() => {
+          const id = confirmation?.transactionId;
+          const type = confirmation?.type;
+          setConfirmation(null);
+          onClose();
+          if (type !== "transfer" && id) setTimeout(() => setMoodPromptId(id), 0);
+        }}
+      />
 
       <CategoryModal
         open={catOpen}

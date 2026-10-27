@@ -10,6 +10,7 @@ import Modal from "./Modal";
 import TagInput from "./TagInput";
 import ReceiptField from "./ReceiptField";
 import MoodPrompt from "./MoodPrompt";
+import TransactionConfirmation from "./TransactionConfirmation";
 
 const LAST_KEY = "pw_last_account";
 const field =
@@ -34,6 +35,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const [hint, setHint] = useState("");
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
   const applyReceiptScan = (data) => {
     if (data.amount) setAmount(String(data.amount));
     if (data.description && !note) setNote(data.description);
@@ -49,6 +51,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
     setType(["income", "expense", "transfer"].includes(initial?.type) ? initial.type : "expense"); setAmount(""); setNote(""); setNotes(""); setTags([]); setReceipt({ status: "none" });
     setCategory(""); setHint(""); setAccount(""); setToAccount(""); setHasFee(false); setFee("");
     setMoreOpen(false);
+    setConfirmation(null);
     reload();
     api.get("/accounts").then(({ data }) => {
       setAccounts(data);
@@ -118,8 +121,17 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
       }
       if (account) { try { localStorage.setItem(LAST_KEY, account); } catch { /* storage blocked */ } }
       onSaved();
-      onClose();
-      if (type !== "transfer") setTimeout(() => setMoodPromptId(res.data._id), 0);
+      setConfirmation({
+        type,
+        amount: n,
+        category: type === "transfer" ? "" : category,
+        description: note.trim(),
+        date: res.data.date,
+        accountName: accounts.find((item) => item._id === account)?.name,
+        toAccountName: accounts.find((item) => item._id === toAccount)?.name,
+        receiptAttached: receipt.status === "new",
+        transactionId: res.data._id,
+      });
     } catch { /* the red message explains what to fix */ } finally {
       setSaving(false);
     }
@@ -127,7 +139,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
 
   return (
     <>
-    <Modal open={open} onClose={onClose} title="Add transaction">
+    <Modal open={open && !confirmation} onClose={onClose} title="Add transaction">
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-3 gap-2" role="group" aria-label="Type">
           {[["income", "Income"], ["expense", "Expense"], ["transfer", "Transfer"]].map(([v, label]) => {
@@ -245,6 +257,17 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
 
       </form>
     </Modal>
+    <TransactionConfirmation
+      open={Boolean(confirmation)}
+      transaction={confirmation}
+      onDone={() => {
+        const id = confirmation?.transactionId;
+        const savedType = confirmation?.type;
+        setConfirmation(null);
+        onClose();
+        if (savedType !== "transfer" && id) setTimeout(() => setMoodPromptId(id), 0);
+      }}
+    />
     <MoodPrompt transactionId={moodPromptId} onClose={() => { setMoodPromptId(null); onClose(); }} />
     </>
   );

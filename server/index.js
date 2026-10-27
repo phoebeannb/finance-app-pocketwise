@@ -22,6 +22,7 @@ import { startScheduler } from "./utils/recurring.js";
 import safeRoutes from "./routes/safe.js";
 import insightRoutes from "./routes/insights.js";
 import demoRoutes from "./routes/demo.js";
+import searchRoutes from "./routes/search.js";
 
 
 
@@ -49,6 +50,7 @@ app.use("/api/shared-groups", sharedGroupRoutes);
 app.use("/api/safe-to-spend", safeRoutes);
 app.use("/api/insights", insightRoutes);
 app.use("/api/demo", demoRoutes);
+app.use("/api/search", searchRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {

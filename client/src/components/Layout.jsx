@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { QuickAddContext } from "../context/QuickAddContext";
 import TransactionModal from "./TransactionModal";
 import QuickAdd from "./QuickAdd";
+import ReceiptUploadModal from "./ReceiptUploadModal";
 import BillQuickAdd from "./BillQuickAdd";
 import Modal from "./Modal";
 import Shortcuts from "./Shortcuts";
@@ -115,9 +116,6 @@ function SideNav({ labels, onToggle, badges }) {
       <nav aria-label="Main" className="flex-1 space-y-4 overflow-y-auto">
         {GROUPS.map((g) => (
           <div key={g.title}>
-            {labels
-              ? <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{g.title}</div>
-              : <div className="mx-auto mb-2 h-px w-6 bg-white/10" aria-hidden="true" />}
             <div className={`grid gap-1 ${labels ? "" : "justify-items-center"}`}>
               {g.links.map((l) => <NavItem key={l.to} item={l} labels={labels} badges={badges} />)}
             </div>
@@ -157,7 +155,7 @@ export default function Layout() {
   const [quickInitial, setQuickInitial] = useState(null);
   const [fullOpen, setFullOpen] = useState(false);
   const [fullInitial, setFullInitial] = useState(null);
-  const [focusReceipt, setFocusReceipt] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -170,14 +168,10 @@ export default function Layout() {
   const ctx = useMemo(() => ({
     open: (initial) => { setQuickInitial(initial || null); setQuickOpen(true); },
     openBill: () => setBillQuickOpen(true),
-    openReceipt: () => {
-      setFullInitial({ type: "expense" });
-      setFocusReceipt(true);
-      setFullOpen(true);
-    },
+    openReceipt: () => setReceiptOpen(true),
     refresh: saved,
   }), [saved]);
-  const openFull = (initial) => { setFullInitial(initial || null); setFocusReceipt(false); setQuickOpen(false); setFullOpen(true); };
+  const openFull = (initial) => { setFullInitial(initial || null); setQuickOpen(false); setFullOpen(true); };
   const requestLogout = () => {
     setMoreOpen(false);
     setProfileOpen(false);
@@ -296,8 +290,9 @@ export default function Layout() {
 
         <Shortcuts onAdd={() => setQuickOpen(true)} onLogout={requestLogout} />
         <QuickAdd open={quickOpen} initial={quickInitial} onClose={() => setQuickOpen(false)} onSaved={saved} onMore={openFull} />
+        <ReceiptUploadModal open={receiptOpen} onClose={() => setReceiptOpen(false)} onSaved={saved} />
         <BillQuickAdd open={billQuickOpen} onClose={() => setBillQuickOpen(false)} onSaved={saved} />
-        <TransactionModal open={fullOpen} initial={fullInitial} focusReceipt={focusReceipt} onClose={() => setFullOpen(false)} onSaved={saved} />
+        <TransactionModal open={fullOpen} initial={fullInitial} onClose={() => setFullOpen(false)} onSaved={saved} />
 
         <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
           <ul className="divide-y divide-slate-100">
