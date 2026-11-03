@@ -224,7 +224,7 @@ export default function Dashboard() {
               <ArrowDownLeft size={16} aria-hidden="true" /> Add Income
             </button>
             <button onClick={openReceipt} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50">
-              <ScanLine size={16} aria-hidden="true" /> Scan Receipt Only
+              <ScanLine size={16} aria-hidden="true" /> Scan Receipt
             </button>
           </div>
         </div>
