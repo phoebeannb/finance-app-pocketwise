@@ -1,10 +1,13 @@
+import { NepaliRupee } from "lucide-react";
+
 const LOCALES = { PHP: "en-PH" };
 
 export const CURRENCIES = [
   ["PHP", "Philippine peso"], ["USD", "US dollar"], ["EUR", "Euro"], ["GBP", "British pound"],
   ["JPY", "Japanese yen"], ["SGD", "Singapore dollar"], ["AUD", "Australian dollar"],
   ["CAD", "Canadian dollar"], ["HKD", "Hong Kong dollar"], ["CNY", "Chinese yuan"],
-  ["KRW", "South Korean won"], ["AED", "UAE dirham"], ["SAR", "Saudi riyal"],
+  ["KRW", "South Korean won"], ["AED", "UAE dirham"], ["SAR", "Saudi riyal"], ["NPR", "Nepali rupee"],
+  ["INR", "Indian rupee"], ["THB", "Thai baht"], ["MYR", "Malaysian ringgit"], ["IDR", "Indonesian rupiah"]
 ];
 
 const cache = {};

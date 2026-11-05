@@ -5,7 +5,7 @@ import Modal from "./Modal";
 
 const PAGES = [
   ["Overview", "/"], ["Accounts", "/accounts"], ["Transactions", "/transactions"], ["Budgets", "/budgets"],
-  ["Bills", "/bills"], ["Goals", "/goals"], ["Reports", "/reports"], ["Settings", "/settings"],
+  ["Bills", "/bills"], ["Goals", "/goals"], ["Insights", "/reports"], ["Settings", "/settings"],
 ];
 const LIST = [
   ["N", "Add a transaction"],

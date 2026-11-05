@@ -55,7 +55,6 @@ export default function Bills() {
   const [catOpen, setCatOpen] = useState(false);
   const [toDelete, setToDelete] = useState(null);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const [showCalendar, setShowCalendar] = useState(false);
   const { expense, income, reload } = useCategories();
 
   const load = useCallback(async () => {
@@ -155,12 +154,8 @@ export default function Bills() {
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">Bills</h2>
+          <h2 className="text-2xl font-semibold">Upcoming</h2>
         </div>
-        <button onClick={openAdd}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-          <Plus size={16} /> Add bill
-        </button>
       </div>
 
       {error && <ErrorBar message={error} onRetry={load} />}
@@ -168,7 +163,7 @@ export default function Bills() {
 
       {items && (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="hidden">
             <Stat label="Monthly Bills" value={formatMoney(monthlyBills)} color="text-red-600" hint={`${bills.length} active`} />
             <Stat label="Due soon" value={formatMoney(soonTotal)} hint={plural(soon.length, "bill")} />
             <Stat label="Due this month" value={formatMoney(thisMonthTotal)} hint={plural(thisMonth.length, "bill")} />
@@ -176,29 +171,21 @@ export default function Bills() {
           </div>
 
           {overdue.length > 0 && (
-            <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <div className="hidden" role="alert">
               <b>{plural(overdue.length, "bill")} overdue:</b> {overdue.map((i) => i.name).join(", ")}. Update the due date or use Skip if you already paid it.
             </div>
           )}
 
           {unused.length > 0 && (
-            <div role="status" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="hidden" role="status">
               You marked {plural(unused.length, "bill")} as unused: {unused.map((i) => i.name).join(", ")}. That's{" "}
               <b>{formatMoney(unusedMonthly)} a month</b> ({formatMoney(unusedMonthly * 12)} a year). If you're not using {unused.length === 1 ? "it" : "them"}, consider cancelling.
             </div>
           )}
 
-          <div className="mb-4">
-            <button type="button" onClick={() => setShowCalendar((value) => !value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              {showCalendar ? "Hide bill calendar" : "Show bill calendar"}
-            </button>
-          </div>
-          {showCalendar && (
-            <BillCalendar items={calendarItems} month={calendarMonth}
-              onMonthChange={(offset) => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))}
-              onSelect={openEdit} />
-          )}
+          <BillCalendar items={calendarItems} month={calendarMonth}
+            onMonthChange={(offset) => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))}
+            onSelect={openEdit} />
 
           <TableCard>
             <table className="data-table">

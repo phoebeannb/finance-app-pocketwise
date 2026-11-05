@@ -8,6 +8,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import Ring from "../components/Ring";
 import Skeleton from "../components/Skeleton";
 import { IconButton, Stat, Empty, ErrorBar, card } from "../components/ui";
+import AccountPicker from "../components/AccountPicker";
 
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
@@ -29,15 +30,21 @@ export default function Goals() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(blank);
   const [deleting, setDeleting] = useState(null);
+  const [funding, setFunding] = useState(null);
+  const [fundAmount, setFundAmount] = useState("");
+  const [fundAccount, setFundAccount] = useState("");
+  const [accounts, setAccounts] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      const [g, a] = await Promise.all([
+      const [g, a, acc] = await Promise.all([
         api.get("/goals"),
         api.get("/transactions/search", { params: { type: "transfer", category: "Savings", pageSize: 6 } }),
+        api.get("/accounts"),
       ]);
       setGoals(g.data);
       setActivity(a.data.items);
+      setAccounts(acc.data.filter((account) => ["Bank Account", "Other"].includes(account.type)));
       setError("");
     } catch (err) {
       setError(err.response ? "Could not load your goals." : "Can't reach the server. Make sure it's running, then try again.");
@@ -80,6 +87,17 @@ export default function Goals() {
     await api.delete(`/goals/${deleting._id}`, { quiet: true });
     setDeleting(null);
     load();
+  };
+  const openFunding = (goal) => { setFunding(goal); setFundAmount(""); setFundAccount(""); };
+  const saveFunds = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post(`/goals/${funding._id}/funds`, { amount: Number(fundAmount), account: fundAccount });
+      setFunding(null);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not save money to this goal.");
+    }
   };
 
   const saved = list.reduce((s, g) => s + g.saved, 0);
@@ -160,6 +178,7 @@ export default function Goals() {
                   </p>
 
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <button type="button" onClick={() => openFunding(g)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save money</button>
                     <div className="flex">
                       <IconButton icon={Pencil} label="Edit" onClick={() => openEdit(g)} />
                       <IconButton icon={Trash2} label="Delete" danger onClick={() => setDeleting(g)} />
@@ -226,6 +245,18 @@ export default function Goals() {
           <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">
             {editing ? "Save changes" : "Create goal"}
           </button>
+        </form>
+      </Modal>
+
+      <Modal open={!!funding} onClose={() => setFunding(null)} title={`Save money to ${funding?.name || "goal"}`}>
+        <form onSubmit={saveFunds} className="space-y-3">
+          <p className="text-sm text-slate-600">Move money from one of your bank accounts or wallets into this goal.</p>
+          <div>
+            <label htmlFor="fund-amount" className="mb-1 block text-sm font-medium text-slate-700">Amount</label>
+            <input id="fund-amount" type="number" min="0.01" step="0.01" value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} required className={field} />
+          </div>
+          <AccountPicker id="fund-account" label="From account" accounts={accounts} value={fundAccount} onChange={setFundAccount} />
+          <button type="submit" className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700">Save money</button>
         </form>
       </Modal>
 

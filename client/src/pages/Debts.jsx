@@ -123,7 +123,7 @@ export default function Debts() {
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">Utang & Shared Expenses</h2>
+          <h2 className="text-2xl font-semibold">Who Owes You</h2>
           <p className="mt-1 text-sm text-slate-600">Track who owes you and who you need to pay.</p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -21,7 +21,7 @@ export default function BillCalendar({ items, month, onMonthChange, onSelect }) 
   const title = month.toLocaleDateString("en-PH", { month: "long", year: "numeric" });
 
   return (
-    <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="bill-calendar-title">
+    <section className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm" aria-labelledby="bill-calendar-title">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 id="bill-calendar-title" className="text-lg font-semibold">Bill calendar</h3>
         <div className="flex items-center gap-2">
@@ -37,7 +37,7 @@ export default function BillCalendar({ items, month, onMonthChange, onSelect }) 
           const entries = byDay[key] || [];
           const inMonth = date.getMonth() === month.getMonth();
           return (
-            <div key={key} className={`min-h-16 border-t border-slate-100 p-1 text-left ${inMonth ? "" : "bg-slate-50 text-slate-400"}`}>
+            <div key={key} className={`min-h-12 border-t border-slate-100 p-1 text-left ${inMonth ? "" : "bg-slate-50 text-slate-400"}`}>
               <div className="text-xs">{date.getDate()}</div>
               {entries.map((item) => (
                 <button key={item._id} type="button" onClick={() => onSelect(item)}

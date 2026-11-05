@@ -13,6 +13,8 @@ import ReceiptField from "./ReceiptField";
 import MoodPrompt from "./MoodPrompt";
 import TransactionConfirmation from "./TransactionConfirmation";
 import { categoryVisual } from "./CategoryLabel";
+import AmountInput from "./AmountInput";
+import AccountPicker from "./AccountPicker";
 
 const LAST_KEY = "pw_last_account";
 
@@ -42,7 +44,8 @@ function Field({ label, htmlFor, children }) {
 
 function CategoryPicker({ categories, value, onChange, label = "Category" }) {
   return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
+    <div>
+      <div role="group" aria-label={label} className="flex flex-wrap gap-2">
       {categories.map((category) => {
         const [Icon, color] = categoryVisual({ category, type: "expense", description: "" });
         const selected = value.toLowerCase() === category.toLowerCase();
@@ -54,6 +57,8 @@ function CategoryPicker({ categories, value, onChange, label = "Category" }) {
           </button>
         );
       })}
+      </div>
+      <p className="mt-2 text-sm font-medium text-slate-700">{value || "Select a category"}</p>
     </div>
   );
 }
@@ -75,8 +80,6 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
   const { expense, income, reload } = useCategories();
   const { prefs } = usePrefs();
   const defaultAccount = prefs.defaultAccount;
-  const accountsRef = useRef([]);
-  accountsRef.current = accounts;
 
   useEffect(() => {
     if (!open) return;
@@ -85,13 +88,13 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
     setConfirmation(null);
     reload();
     Promise.all([api.get("/accounts"), api.get("/goals")]).then(([accountsRes, goalsRes]) => {
-      setAccounts(accountsRes.data);
+      setAccounts(accountsRes.data.filter((a) => ["Bank Account", "Other"].includes(a.type)));
       setGoals(goalsRes.data);
       if (!editing) {
         // Smart default: the account you used last, then your default account
         let last = "";
         try { last = localStorage.getItem(LAST_KEY) || ""; } catch { /* storage blocked */ }
-        const pick = [last, defaultAccount].find((id) => id && accountsRes.data.some((a) => a._id === id));
+        const pick = [last, defaultAccount].find((id) => id && accountsRes.data.some((a) => ["Bank Account", "Other"].includes(a.type) && a._id === id));
         if (pick) setForm((f) => (f.account ? f : { ...f, account: pick }));
       }
     }).catch(() => {});
@@ -133,26 +136,6 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
     goalSelectRef.current?.focus();
   }, [open, focusGoal, form.type, goals.length]);
 
-  // Smart default: suggest a category (and account) from what you typed, but only fill empty fields
-  useEffect(() => {
-    if (!open || editing || form.type === "transfer") return;
-    const text = form.description.trim();
-    if (text.length < 3) { setHint(""); return; }
-    const t = setTimeout(() => {
-      api.get("/transactions/suggest", { params: { description: text, type: form.type } })
-        .then(({ data }) => {
-          if (!data.category) { setHint(""); return; }
-          const accountOk = data.account && accountsRef.current.some((a) => a._id === data.account);
-          setForm((f) => ({ ...f, category: f.category || data.category, account: f.account || (accountOk ? data.account : "") }));
-          setHint(data.source === "history"
-            ? `Filled in from your last “${text}” entry. Change it if this one is different.`
-            : "Category suggested from the description. Change it if it's wrong.");
-        })
-        .catch(() => {});
-    }, 450);
-    return () => clearTimeout(t);
-  }, [open, editing, form.description, form.type]);
-
   const isTransfer = form.type === "transfer";
   const baseCats = form.type === "income" ? income : expense;
   const cats =
@@ -173,7 +156,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
       fee: type === "transfer" ? form.fee : "",
     });
 
-  const accountLabel = (a) => `${a.name} · ${formatMoney(a.currentBalance)}`;
+  const spendableAccounts = accounts.filter((a) => ["Bank Account", "Other"].includes(a.type));
   const totalOut = Number(form.amount || 0) + (form.hasFee ? Number(form.fee || 0) : 0);
   const splitTotal = splits.reduce((sum, part) => sum + Number(part.amount || 0), 0);
   const selectedGoal = goals.find((goal) => goal._id === form.goalId);
@@ -184,7 +167,7 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
     setForm((current) => ({
       ...current,
       amount: data.amount ? String(data.amount) : current.amount,
-      description: description && !current.description ? description : current.description,
+      notes: description && !current.notes ? description : current.notes,
     }));
     if (!description || editing) return;
     try {
@@ -290,20 +273,14 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
           </div>
 
           <Field label="Amount" htmlFor="tx-amount">
-            <input id="tx-amount" name="amount" type="number" step="0.01" min="0.01" placeholder="0.00" value={form.amount}
-              onChange={handleChange} required autoFocus className={`${field} text-lg`} />
+            <AmountInput id="tx-amount" value={form.amount} onChange={handleChange} className={`${field} text-lg`} />
           </Field>
 
           {!isTransfer && (
             <>
               <Field label="Account" htmlFor="tx-account">
-                <select id="tx-account" name="account" value={form.account} onChange={handleChange}
-                  required={accounts.length > 0} className={field}>
-                  <option value="" disabled={accounts.length > 0}>
-                    {accounts.length > 0 ? "Select account" : "No accounts yet"}
-                  </option>
-                  {accounts.map((a) => <option key={a._id} value={a._id}>{accountLabel(a)}</option>)}
-                </select>
+                <AccountPicker id="tx-account" accounts={spendableAccounts} value={form.account}
+                  onChange={(value) => setForm({ ...form, account: value })} />
                 {accounts.length === 0 && (
                   <p className="mt-1 text-sm text-amber-600">
                     <Link to="/accounts" onClick={onClose} className="font-medium underline">Create an account</Link> so this
@@ -375,19 +352,13 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
           {isTransfer && (
             <>
               <Field label="From account" htmlFor="tx-from-account">
-                <select id="tx-from-account" name="account" value={form.account} onChange={handleChange} required className={field}>
-                  <option value="" disabled>Select an account</option>
-                  {accounts.map((a) => <option key={a._id} value={a._id}>{accountLabel(a)}</option>)}
-                </select>
+                <AccountPicker id="tx-from-account" accounts={spendableAccounts} value={form.account}
+                  onChange={(value) => setForm({ ...form, account: value })} />
               </Field>
 
               <Field label="To account" htmlFor="tx-to-account">
-                <select id="tx-to-account" name="toAccount" value={form.toAccount} onChange={handleChange} required className={field}>
-                  <option value="" disabled>Select destination account</option>
-                  {accounts.filter((a) => a._id !== form.account).map((a) => (
-                    <option key={a._id} value={a._id}>{accountLabel(a)}</option>
-                  ))}
-                </select>
+                <AccountPicker id="tx-to-account" accounts={spendableAccounts} value={form.toAccount}
+                  onChange={(value) => setForm({ ...form, toAccount: value })} exclude={[form.account]} />
                 {accounts.length < 2 && (
                   <p className="mt-1 text-sm text-amber-600">You need at least two accounts. Create them in the Accounts tab.</p>
                 )}
@@ -413,10 +384,6 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
               </div>
             </>
           )}
-
-          <Field label="Description" htmlFor="tx-description">
-            <input id="tx-description" name="description" placeholder="Optional note" value={form.description} onChange={handleChange} className={field} />
-          </Field>
 
           <Field label="Notes (optional)" htmlFor="tx-notes">
             <textarea id="tx-notes" name="notes" rows={2} maxLength={500} value={form.notes} onChange={handleChange}

@@ -16,7 +16,7 @@ import { validatePassword } from "../utils/passwordPolicy.js";
 const router = express.Router();
 router.use(auth);
 
-const CURRENCIES = ["PHP", "USD", "EUR", "GBP", "JPY", "SGD", "AUD", "CAD", "HKD", "CNY", "KRW", "AED", "SAR"];
+const CURRENCIES = ["PHP", "USD", "EUR", "GBP", "JPY", "SGD", "AUD", "CAD", "HKD", "CNY", "KRW", "AED", "SAR" , "NPR", "INR", "THB", "MYR", "IDR"];
 const DATE_FORMATS = ["medium", "dmy", "mdy", "iso"];
 
 /* ---------- Profile ---------- */

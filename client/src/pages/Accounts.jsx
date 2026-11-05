@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Eye, Pencil, Landmark, CreditCard, HandCoins, TrendingUp, Building2, Wallet } from "lucide-react";
 import api from "../api/axios";
 import { formatMoney } from "../utils/format";
@@ -39,6 +40,7 @@ const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
 
 export default function Accounts() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState(null);
   const [goals, setGoals] = useState([]);
   const [error, setError] = useState("");
@@ -58,6 +60,15 @@ export default function Accounts() {
       .then(([accountsRes, goalsRes]) => { setItems(accountsRes.data); setGoals(goalsRes.data); setError(""); })
       .catch((err) => setError(err.response ? "Could not load accounts." : "Can't reach the server. Make sure it's running, then try again."));
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (searchParams.get("create") === "investment") {
+      setEditing(null);
+      setForm({ ...emptyForm, type: "Investment" });
+      setFormError("");
+      setFormOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(""); setFormOpen(true); };
   const openEdit = (a) => {
@@ -107,11 +118,11 @@ export default function Accounts() {
     <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold">Accounts</h2>
+          <h2 className="text-2xl font-semibold">Wallets</h2>
         </div>
         <button onClick={openCreate}
           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-          <Plus size={16} aria-hidden="true" /> Create Account
+          <Plus size={16} aria-hidden="true" /> Create Wallet
         </button>
       </div>
 
@@ -156,7 +167,8 @@ export default function Accounts() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {group.map((a) => (
-                <article key={a._id} className={`${card} flex flex-col p-4`}>
+                <article key={a._id} onClick={(event) => { if (!event.target.closest("button")) setViewing(a); }}
+                  className={`${card} flex cursor-pointer flex-col p-4 transition hover:-translate-y-0.5 hover:shadow-lg`}>
                   <div className="flex items-start gap-3">
                     {a.provider
                       ? <BrandLogo name={a.provider} label={a.name} />

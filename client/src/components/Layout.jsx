@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
+  LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings, TrendingUp,
   LogOut, Plus, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle, Sun, Moon,
 } from "lucide-react";
 import api from "../api/axios";
@@ -19,21 +19,22 @@ import GlobalSearchModal from "./GlobalSearchModal";
 import { usePrefs } from "../context/PreferencesContext";
 
 const OVERVIEW = { to: "/", label: "Overview", icon: LayoutDashboard, end: true };
-const ACCOUNTS = { to: "/accounts", label: "Accounts", icon: Landmark };
+const ACCOUNTS = { to: "/accounts", label: "Wallets", icon: Landmark };
 const TRANSACTIONS = { to: "/transactions", label: "Transactions", icon: ArrowLeftRight };
-const DEBTS = { to: "/debts", label: "Utang & Shared", icon: Users };
+const DEBTS = { to: "/debts", label: "Who Owes You", icon: Users };
 const BUDGETS = { to: "/budgets", label: "Budgets", icon: Gauge, badge: "budgets" };
-const BILLS = { to: "/bills", label: "Bills", icon: CalendarClock, badge: "bills" };
+const UPCOMING = { to: "/bills", label: "Upcoming", icon: CalendarClock, badge: "bills" };
+const INVESTMENTS = { to: "/investments", label: "Investments", icon: TrendingUp };
 const GOALS = { to: "/goals", label: "Goals", icon: Target };
-const REPORTS = { to: "/reports", label: "Reports", icon: BarChart3 };
+const REPORTS = { to: "/reports", label: "Insights", icon: BarChart3 };
 const SETTINGS = { to: "/settings", label: "Settings", icon: Settings };
 
 const GROUPS = [
-  { title: "Money", links: [OVERVIEW, ACCOUNTS, TRANSACTIONS, DEBTS] },
-  { title: "Planning", links: [BUDGETS, BILLS, GOALS] },
+  { title: "Money", links: [OVERVIEW, ACCOUNTS, TRANSACTIONS, DEBTS, UPCOMING] },
+  { title: "Planning", links: [BUDGETS, GOALS, INVESTMENTS] },
   { title: "Analysis", links: [REPORTS] },
 ];
-const MORE = [ACCOUNTS, TRANSACTIONS, DEBTS, BILLS, GOALS, REPORTS];
+const MORE = [ACCOUNTS, TRANSACTIONS, DEBTS, UPCOMING, GOALS, INVESTMENTS, REPORTS];
 
 const daysUntil = (iso) => {
   const d = new Date();

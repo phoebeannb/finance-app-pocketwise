@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine, WalletCards, ReceiptText, PiggyBank, HeartPulse, AlertTriangle } from "lucide-react";
+import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine, WalletMinimal, PiggyBank, AlertTriangle, Star, TrendingUp, ChartNoAxesCombined } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useQuickAdd } from "../context/QuickAddContext";
 import { formatMoney } from "../utils/format";
-import { relativeDay } from "../utils/datetime";
+import { todayKey } from "../utils/datetime";
 import { monthNow, monthLabel } from "../utils/months";
 import { txTitle } from "../utils/txDisplay";
-import { txNote, hasNote, txSign, txColor, txAccount } from "../utils/txTable";
+import { txNote, hasNote, txSign, txColor } from "../utils/txTable";
 import BudgetsPanel from "../components/BudgetsPanel";
 import SavingsGoalsPanel from "../components/SavingsGoalsPanel";
 import InboxList from "../components/InboxList";
 import MonthStepper from "../components/MonthStepper";
 import { CategoryBadge } from "../components/CategoryLabel";
 import Skeleton from "../components/Skeleton";
-import { Bar, Empty, ErrorBar, card } from "../components/ui";
+import { Empty, ErrorBar, card } from "../components/ui";
+import Modal from "../components/Modal";
 
 const SPENDABLE = ["Bank Account", "Other"];
 
@@ -30,8 +31,18 @@ const dueLabel = (iso) => {
   const n = Math.round((new Date(iso).getTime() - today) / 86400000);
   return n < 0 ? "Overdue" : n === 0 ? "Due today" : n === 1 ? "Tomorrow" : `In ${n} days`;
 };
+const overviewDate = (iso) => new Intl.DateTimeFormat("en-US", {
+  weekday: "long", month: "long", day: "numeric", timeZone: "UTC",
+}).format(new Date(iso));
+const monthRange = (value) => {
+  const [year, month] = value.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 0));
+  const format = (date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return `${format(start)} - ${format(end)}, ${year}`;
+};
 
-function MetricCard({ label, value, icon: Icon, tone, iconTone, detail, children }) {
+function MetricCard({ label, value, icon: Icon, iconTone, detail, children }) {
   return (
     <div className={`${card} relative overflow-hidden p-5`}>
       <div className="relative flex items-start justify-between gap-3">
@@ -51,86 +62,56 @@ function MetricCard({ label, value, icon: Icon, tone, iconTone, detail, children
   );
 }
 
-function healthScore(summary, safe, budgets, insights) {
-  if (!summary) return null;
-  let score = 50;
-  const savingsRate = summary.income > 0 ? summary.balance / summary.income : 0;
-  if (summary.income > 0) score += Math.max(-20, Math.min(25, savingsRate * 50));
-  if (safe?.safeToday > 0) score += 10;
-  if (safe?.safeToday <= 0) score -= 15;
-  const budgetCount = budgets.length;
-  if (budgetCount) {
-    const healthyBudgets = budgets.filter((b) => b.spent < b.limit).length;
-    score += (healthyBudgets / budgetCount) * 15;
-  }
-  if (insights?.billsDue?.items?.some((b) => b.valueRating === "unused")) score -= 5;
-  return Math.round(Math.max(0, Math.min(100, score)));
-}
-
-function SafeCard({ safe }) {
-  if (!safe?.hasAccounts) {
-    return (
-      <div className={`${card} flex h-full flex-col justify-center p-5`}>
-        <div className="text-sm text-slate-600">Safe to spend today</div>
-        <p className="mt-1 text-lg font-semibold text-slate-900">Add a bank account to see what's safe to spend.</p>
-        <Link to="/accounts" className="mt-2 text-sm font-medium text-indigo-700 hover:underline">Add an account</Link>
-      </div>
-    );
-  }
-
-  const over = safe.safeToday <= 0;
-  const used = safe.perDay > 0 ? Math.min(100, (safe.spentToday / safe.perDay) * 100) : over ? 100 : 0;
-  const safeTone = over ? "text-amber-700" : safe.safeToday < safe.perDay * 0.25 ? "text-amber-700" : "text-green-700";
-  return (
-    <div className={`${card} h-full p-5 sm:p-6`}>
-      <div className="text-sm text-slate-600">Safe to spend today</div>
-      <div className={`mt-2 text-4xl font-semibold sm:text-5xl ${safeTone}`}>
-        {over ? formatMoney(Math.abs(safe.safeToday)) : formatMoney(safe.safeToday)}
-      </div>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
-        {over
-          ? safe.left < 0
-            ? `You're ${formatMoney(Math.abs(safe.safeToday))} over today. Tomorrow's allowance adjusts.`
-            : "You've used up today's allowance. Tomorrow's allowance adjusts."
-          : `After bills, you can spend about ${formatMoney(safe.perDay)} per day for the rest of the month.`}
-      </p>
-      <div className="mt-4 flex items-center gap-3">
-        <div className="flex-1"><Bar pct={used} color={used >= 100 || used >= 75 ? "bg-amber-500" : "bg-green-600"} label="Today's allowance used" /></div>
-        <span className="text-xs text-slate-600">{formatMoney(safe.spentToday)} spent today</span>
-      </div>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const { user } = useAuth();
-  const { open: openAdd, openReceipt, refresh } = useQuickAdd();
+  const { open: openAdd, openReceipt } = useQuickAdd();
   const [month, setMonth] = useState(monthNow());
   const [summary, setSummary] = useState(null);
-  const [safe, setSafe] = useState(null);
   const [ins, setIns] = useState(null);
   const [accounts, setAccounts] = useState(null);
   const [budgets, setBudgets] = useState([]);
   const [recent, setRecent] = useState([]);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [demoBusy, setDemoBusy] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [streakOpen, setStreakOpen] = useState(false);
+  const streakDays = Array.from({ length: 30 }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (29 - index));
+    return { date, active: index >= Math.max(0, 30 - streak) };
+  });
+
+  useEffect(() => {
+    const key = "pw_daily_streak";
+    const today = todayKey();
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || "null");
+      if (saved?.last === today) setStreak(saved.count || 1);
+      else {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const previous = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(yesterday.getDate()).padStart(2, "0")}`;
+        const count = saved?.last === previous ? (saved.count || 0) + 1 : 1;
+        localStorage.setItem(key, JSON.stringify({ last: today, count }));
+        setStreak(count);
+      }
+    } catch { setStreak(1); }
+  }, []);
 
   const load = useCallback(async () => {
     try {
-      const [s, t, a, b, sf, ni] = await Promise.all([
+      const [s, t, a, b, ni] = await Promise.all([
         api.get("/transactions/summary", { params: { month } }),
         api.get("/transactions", { params: { limit: 6 } }),
         api.get("/accounts"),
         api.get("/budgets", { params: { month } }).catch(() => ({ data: [] })),
-        api.get("/safe-to-spend").catch(() => ({ data: null })), // a problem in one extra shouldn't blank the page
         api.get("/insights", { params: { month } }).catch(() => ({ data: null })),
       ]);
       setSummary(s.data);
       setRecent(t.data);
       setAccounts(a.data);
       setBudgets(b.data);
-      setSafe(sf.data);
       setIns(ni.data);
       setError("");
     } catch (err) {
@@ -142,35 +123,17 @@ export default function Dashboard() {
 
   const handleSaved = () => { load(); setRefreshKey((k) => k + 1); };
 
-  const loadDemo = async () => {
-    setDemoBusy(true);
-    try {
-      await api.post("/demo/load", {}, { successMessage: "Demo data loaded. Have a look around." });
-      refresh();
-    } catch { /* the red message explains why */ } finally {
-      setDemoBusy(false);
-    }
-  };
-
   const firstName = (user?.name || "").split(" ")[0];
   const spendable = (accounts || []).filter((a) => SPENDABLE.includes(a.type));
   const available = spendable.reduce((s, a) => s + a.currentBalance, 0);
+  const investments = (accounts || []).filter((a) => a.type === "Investment").reduce((s, a) => s + a.currentBalance, 0);
   const isEmpty = summary && accounts && accounts.length === 0 && recent.length === 0;
-  const score = healthScore(summary, safe, budgets, ins);
-  const scoreLabel = score >= 80 ? "Strong" : score >= 60 ? "On track" : "Needs attention";
-  const scoreColor = score >= 80 ? "text-green-700" : score >= 60 ? "text-indigo-700" : "text-amber-700";
   const setupActions = [
     !accounts?.length && { text: "Add a bank or wallet so PocketWise can calculate your available balance.", to: "/accounts", action: "Add account" },
     !budgets?.length && { text: "Set a monthly budget to see how much you can safely spend.", to: "/budgets", action: "Set budget" },
     !ins?.billsDue?.items?.length && { text: "Add a recurring bill so you can get reminders before it is due.", to: "/bills", action: "Add bill" },
   ].filter(Boolean);
   const attention = [
-    safe?.safeToday <= 0 && {
-      severity: "urgent",
-      text: safe.left < 0 ? "Your planned bills are higher than your available money." : "You have used today's safe-to-spend amount.",
-      to: "/budgets",
-      action: "Review spending",
-    },
     ...(budgets || []).filter((b) => b.spent >= b.limit * 0.8).slice(0, 2).map((b) => ({
       severity: b.spent >= b.limit ? "urgent" : "attention",
       text: b.spent >= b.limit
@@ -208,12 +171,16 @@ export default function Dashboard() {
     <div className="w-full">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-2 inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800">
+          <p className="mb-2 text-xs font-semibold text-slate-600">
             {new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" })}
           </p>
           <h2 className="text-[30px] font-bold tracking-tight">{greeting()}, {firstName}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={() => setStreakOpen(true)} aria-label={`Open daily streak: ${streak} days`} title="Daily Streak"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-600 shadow-sm hover:bg-amber-100">
+            <Star size={20} fill="currentColor" aria-hidden="true" />
+          </button>
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => openAdd({ type: "expense" })}
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 hover:shadow-md">
@@ -248,9 +215,6 @@ export default function Dashboard() {
               <Link to="/goals" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">3. Create a goal</Link>
               <button onClick={openAdd} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">4. Record an expense</button>
               <Link to="/setup" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Open setup guide</Link>
-              <button onClick={loadDemo} disabled={demoBusy} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
-                {demoBusy ? "Loading..." : "Or look around with demo data"}
-              </button>
             </>
           }>
           Add the place your money lives, then log what you spend. Your overview, forecast and budgets fill in as you go.
@@ -260,37 +224,57 @@ export default function Dashboard() {
       {summary && !isEmpty && (
         <>
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2"><SafeCard safe={safe} /></div>
+            <div className={`${card} p-5 sm:p-6 lg:col-span-2`}>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                  <ChartNoAxesCombined size={18} aria-hidden="true" />
+                </span>
+                <span>Net Balance</span>
+              </div>
+              <div className={`mt-2 text-4xl font-semibold ${summary.balance < 0 ? "text-red-700" : "text-slate-900"}`}>
+                {formatMoney(summary.balance)}
+              </div>
+              <p className="mt-2 text-sm text-slate-600">Income minus expenses for {monthLabel(month)}.</p>
+            </div>
             <div className={`${card} p-5 sm:p-6`}>
-              <div className="text-sm text-slate-600">Available Balance</div>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <WalletMinimal size={18} aria-hidden="true" />
+                </span>
+                <span>Available in wallets</span>
+              </div>
               <div className={`mt-2 text-3xl font-semibold ${available < 0 ? "text-red-700" : "text-slate-900"}`}>
                 {spendable.length ? formatMoney(available) : "—"}
               </div>
-              <Link to="/accounts" className="mt-3 inline-block text-sm font-medium text-indigo-700 hover:underline">See Accounts</Link>
             </div>
           </div>
 
-          <div className="mb-2 mt-7 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold">{monthLabel(month)}</h3>
-            <MonthStepper month={month} onChange={setMonth} />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className={`${card} mt-5 overflow-hidden p-4 sm:p-5`} aria-labelledby="month-overview-title">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 id="month-overview-title" className="text-lg font-semibold">This Month Overview</h3>
+                <p className="mt-0.5 text-sm text-slate-500">{monthRange(month)}</p>
+              </div>
+              <MonthStepper month={month} onChange={setMonth} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard label="Income" value={formatMoney(summary.income)}
-              icon={WalletCards} tone="bg-emerald-100" iconTone="bg-emerald-100 text-emerald-700"
-              detail={<span className="font-medium text-emerald-700">Money in this month</span>}>
+              icon={ArrowDownLeft} tone="bg-emerald-100" iconTone="bg-emerald-100 text-emerald-700"
+              detail={<span className="font-medium text-emerald-700">Money In</span>}>
             </MetricCard>
             <MetricCard label="Expenses" value={formatMoney(summary.expenses)}
-              icon={ReceiptText} tone="bg-rose-100" iconTone="bg-rose-100 text-rose-700"
-              detail={<span className="font-medium text-slate-600">Money out this month</span>}>
+              icon={ArrowUpRight} tone="bg-rose-100" iconTone="bg-rose-100 text-rose-700"
+              detail={<span className="font-medium text-slate-600">Money Out</span>}>
             </MetricCard>
-            <MetricCard label="Savings Rate"
-              value={summary.income > 0 ? `${Math.round((summary.balance / summary.income) * 100)}%` : "—"}
-              icon={PiggyBank} tone="bg-indigo-100" iconTone="bg-indigo-100 text-indigo-700"
-              detail={summary.income > 0 && summary.balance < 0 ? "Spending is above income" : "Income left after expenses"} />
-            <MetricCard label="Financial Health" value={score == null ? "—" : `${score}/100`}
-              icon={HeartPulse} tone="bg-amber-100" iconTone={`${scoreColor} bg-amber-100`}
-              detail={<span className={`font-semibold ${scoreColor}`}>{scoreLabel} · <span className="font-normal text-slate-500">based on spending, budgets and safe-to-spend</span></span>} />
-          </div>
+            <MetricCard label="Savings"
+              value={formatMoney(summary.saved || 0)}
+              icon={PiggyBank} tone="bg-amber-100" iconTone="bg-amber-100 text-amber-700"
+              detail="Saved this month" />
+            <MetricCard label="Investments" value={formatMoney(investments)}
+              icon={TrendingUp} tone="bg-sky-100" iconTone="bg-sky-100 text-sky-700"
+              detail="Current value" />
+            </div>
+          </section>
 
           {nextActions.length > 0 && (
             <section className={`${card} mt-5 border-amber-200 bg-amber-50/50 p-4 sm:p-5`} aria-labelledby="attention-title">
@@ -311,6 +295,40 @@ export default function Dashboard() {
               </ul>
             </section>
           )}
+
+          <Modal open={streakOpen} onClose={() => setStreakOpen(false)} title="Daily Streak" size="max-w-sm">
+            <div className="flex flex-col items-center py-4 text-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-amber-500">
+                <Star size={42} fill="currentColor" aria-hidden="true" />
+              </div>
+              <p className="mt-4 text-3xl font-bold text-slate-900">{streak} day{streak === 1 ? "" : "s"}</p>
+              <p className="mt-2 text-sm text-slate-600">Keep opening PocketWise every day to grow your streak.</p>
+              <div className="mt-5 w-full rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-left">
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">1 month challenge · 30 days</p>
+                <p className="mt-1 text-sm text-slate-700">Open PocketWise once a day to complete your monthly streak.</p>
+              </div>
+              <div className="mt-5 grid w-full grid-cols-6 gap-2" aria-label="Last 30 days">
+                {streakDays.map(({ date, active }) => (
+                  <div key={date.toISOString()} title={date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold ${active ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-400"}`}>
+                    {date.getDate()}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-slate-500">Your 1-month, 30-day progress</p>
+              <div className="mt-5 w-full text-left">
+                <p className="mb-2 text-sm font-semibold text-slate-800">Reward preview</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[["7 days", "⭐ Starter star"], ["14 days", "🌟 Rising star"], ["30 days", "🏆 Monthly champion"]].map(([days, reward]) => (
+                    <div key={days} className={`rounded-lg border p-2 ${streak >= Number(days.split(" ")[0]) ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
+                      <p className="text-xs font-semibold text-slate-600">{days}</p>
+                      <p className="mt-1 text-xs font-medium text-slate-800">{reward}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Modal>
 
           <div className="mt-5"><InboxList refreshKey={refreshKey} onChanged={handleSaved} /></div>
 
@@ -363,7 +381,7 @@ export default function Dashboard() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium">{txTitle(t)}</div>
                         <div className={`truncate text-xs ${hasNote(t) ? "text-slate-700" : "italic text-slate-600"}`}>
-                          {txNote(t)} · {relativeDay(t.date)}
+                          {txNote(t)} · {overviewDate(t.date)}
                         </div>
                       </div>
                       <div className={`shrink-0 font-semibold ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</div>

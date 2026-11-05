@@ -1,9 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Check } from "lucide-react";
 import api from "../api/axios";
 import useCategories from "../hooks/useCategories";
 import { usePrefs } from "../context/PreferencesContext";
-import { formatMoney } from "../utils/format";
 import { nowLocalInput, toStored } from "../utils/datetime";
 import { toast } from "../utils/toast";
 import Modal from "./Modal";
@@ -12,17 +11,17 @@ import MoodPrompt from "./MoodPrompt";
 import TransactionConfirmation from "./TransactionConfirmation";
 import CategoryModal from "./CategoryModal";
 import { categoryVisual } from "./CategoryLabel";
+import AmountInput from "./AmountInput";
+import AccountPicker from "./AccountPicker";
 
 const LAST_KEY = "pw_last_account";
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
-const symbol = () => formatMoney(0).replace(/[\d.,\s\u00a0]/g, "");
 
 export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const uid = useId();
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
   const [notes, setNotes] = useState("");
   const [receipt, setReceipt] = useState({ status: "none" });
   const [category, setCategory] = useState("");
@@ -34,53 +33,31 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const [accounts, setAccounts] = useState([]);
   const [hint, setHint] = useState("");
   const [saving, setSaving] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const applyReceiptScan = (data) => {
     if (data.amount) setAmount(String(data.amount));
-    if (data.description && !note) setNote(data.description);
+    if (data.description && !notes) setNotes(data.description);
   };
   const { expense, income, reload } = useCategories();
   const { prefs } = usePrefs();
   const defaultAccount = prefs.defaultAccount;
-  const accountsRef = useRef([]);
-  accountsRef.current = accounts;
 
   useEffect(() => {
     if (!open) return;
-    setType(["income", "expense", "transfer"].includes(initial?.type) ? initial.type : "expense"); setAmount(""); setNote(""); setNotes(""); setReceipt({ status: "none" });
+    setType(["income", "expense", "transfer"].includes(initial?.type) ? initial.type : "expense"); setAmount(""); setNotes(""); setReceipt({ status: "none" });
     setCategory(""); setHint(""); setAccount(""); setToAccount(""); setHasFee(false); setFee("");
-    setMoreOpen(false);
     setConfirmation(null);
     reload();
     api.get("/accounts").then(({ data }) => {
-      setAccounts(data);
+      const spendable = data.filter((a) => ["Bank Account", "Other"].includes(a.type));
+      setAccounts(spendable);
       let last = "";
       try { last = localStorage.getItem(LAST_KEY) || ""; } catch { /* storage blocked */ }
-      const pick = [last, defaultAccount].find((id) => id && data.some((a) => a._id === id));
+      const pick = [last, defaultAccount].find((id) => id && spendable.some((a) => a._id === id));
       if (pick) setAccount(pick);
     }).catch(() => {});
   }, [open, initial, reload, defaultAccount]);
-
-  // Suggest a category from what you typed (only fills it if you haven't chosen one)
-  useEffect(() => {
-    if (!open || type === "transfer") return;
-    const text = note.trim();
-    if (text.length < 3) { setHint(""); return; }
-    const t = setTimeout(() => {
-      api.get("/transactions/suggest", { params: { description: text, type } })
-        .then(({ data }) => {
-          if (!data.category) { setHint(""); return; }
-          const accountOk = data.account && accountsRef.current.some((a) => a._id === data.account);
-          setCategory((c) => c || data.category);
-          if (accountOk) setAccount((a) => a || data.account);
-          setHint(data.source === "history" ? "Filled in from the last time you logged this." : "Suggested from what you typed.");
-        })
-        .catch(() => {});
-    }, 450);
-    return () => clearTimeout(t);
-  }, [open, note, type]);
 
   const pickType = (t) => { setType(t); setCategory(""); setHint(""); };
 
@@ -90,9 +67,6 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
     expense: { hint: "Money going out", icon: ArrowUpRight, color: "text-rose-600", selected: "border-rose-200 bg-rose-50" },
     transfer: { hint: "Move money between accounts", icon: ArrowLeftRight, color: "text-indigo-600", selected: "border-indigo-200 bg-indigo-50" },
   };
-  const moreCount = type === "transfer"
-    ? (hasFee ? 1 : 0)
-    : [notes.trim(), receipt.status !== "none" ? "receipt" : ""].filter(Boolean).length;
   const submit = async (e) => {
     e.preventDefault();
     const n = Number(amount);
@@ -106,7 +80,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
       const res = await api.post(
         "/transactions",
         {
-          type, amount: n, description: note.trim(), notes: notes.trim(), tags: [],
+          type, amount: n, description: "", notes: notes.trim(), tags: [],
           category, mood: "", account: account || null,
           splits: [],
           toAccount: type === "transfer" ? toAccount : null, fee: type === "transfer" && hasFee ? Number(fee) : 0, date: toStored(nowLocalInput()),
@@ -126,7 +100,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
         type,
         amount: n,
         category: type === "transfer" ? "" : category,
-        description: note.trim(),
+        description: "",
         date: res.data.date,
         accountName: accounts.find((item) => item._id === account)?.name,
         toAccountName: accounts.find((item) => item._id === toAccount)?.name,
@@ -162,20 +136,8 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
             <label htmlFor={`${uid}-amount`} className="text-sm font-semibold text-slate-800">How much?</label>
             <span className={`text-xs font-medium ${typeDetails[type].color}`}>{typeDetails[type].hint}</span>
           </div>
-          <div className="relative">
-            <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-2xl text-slate-500">{symbol()}</span>
-            <input id={`${uid}-amount`} type="number" min="0.01" step="0.01" placeholder="0.00" value={amount} autoFocus
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-3 text-3xl font-semibold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100" />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor={`${uid}-note`} className="mb-1 block text-sm font-medium text-slate-700">
-            Description
-          </label>
-          <input id={`${uid}-note`} value={note} maxLength={200} placeholder="e.g. lunch at Jollibee" onChange={(e) => setNote(e.target.value)} className={field} />
-          <p className="mt-1 text-xs text-slate-600">A short label that helps you recognize the transaction.</p>
+          <AmountInput id={`${uid}-amount`} value={amount} autoFocus onChange={(e) => setAmount(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white py-3 px-3 text-3xl font-semibold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100" />
         </div>
 
         {type !== "transfer" && <div>
@@ -188,53 +150,38 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
               const [Icon, color] = categoryVisual({ category: c, type, description: "" });
               return <button type="button" key={c} title={c} aria-label={c} aria-pressed={category === c}
                 onClick={() => setCategory(c)}
-                className={`flex h-11 w-11 items-center justify-center rounded-xl border ${category === c ? "border-indigo-500 ring-2 ring-indigo-100" : "border-slate-200"} ${color}`}>
+                className={`flex min-h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-[10px] font-medium ${category === c ? "border-indigo-500 ring-2 ring-indigo-100" : "border-slate-200"} ${color}`}>
                 <Icon size={20} aria-hidden="true" />
+                <span className="max-w-full truncate">{c}</span>
               </button>;
             })}
             <button type="button" onClick={() => setCategoryOpen(true)} title="Add category" aria-label="Add category"
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-600 hover:bg-slate-50">
+              className="flex min-h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-slate-300 text-slate-600 hover:bg-slate-50">
               <span className="text-xl" aria-hidden="true">+</span>
+              <span className="text-[10px]">New</span>
             </button>
           </div>
+          <p className="mt-2 text-sm font-medium text-slate-700">{category || "Select a category"}</p>
         
         </div>}
 
         {type === "transfer" && (
           <div className="space-y-3">
             <label className="block text-sm font-medium text-slate-700">From account
-              <select value={account} onChange={(e) => setAccount(e.target.value)} className={field} required>
-                <option value="">Select account</option>
-                {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
-              </select>
+              <AccountPicker label="From account" accounts={accounts} value={account} onChange={setAccount} />
             </label>
             <label className="block text-sm font-medium text-slate-700">To account
-              <select value={toAccount} onChange={(e) => setToAccount(e.target.value)} className={field} required>
-                <option value="">Select destination</option>
-                {accounts.filter((a) => a._id !== account).map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
-              </select>
+              <AccountPicker label="To account" accounts={accounts} value={toAccount} onChange={setToAccount} exclude={[account]} />
             </label>
           </div>
         )}
 
         {type !== "transfer" && <div>
           <label htmlFor={`${uid}-acc`} className="mb-1 block text-sm font-medium text-slate-700">Account</label>
-          <select id={`${uid}-acc`} value={account} onChange={(e) => setAccount(e.target.value)} className={field}>
-            <option value="">{accounts.length ? "No account (balances won't change)" : "No accounts yet"}</option>
-            {accounts.map((a) => <option key={a._id} value={a._id}>{a.name} · {formatMoney(a.currentBalance)}</option>)}
-          </select>
+          <AccountPicker id={`${uid}-acc`} accounts={accounts} value={account} onChange={setAccount} />
         </div>}
 
-        <button type="button" onClick={() => setMoreOpen((value) => !value)} aria-expanded={moreOpen} aria-controls={`${uid}-more-options`}
-          className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
-          <span className="text-left">
-            <span className="block">{moreOpen ? "Hide more options" : "More options"}{moreCount > 0 && <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800">{moreCount} added</span>}</span>
-            {!moreOpen && <span className="mt-0.5 block text-xs font-normal text-slate-600">{type === "transfer" ? "Add a transfer fee" : "Notes or a receipt"}</span>}
-          </span>
-          <span aria-hidden="true">{moreOpen ? "−" : "+"}</span>
-        </button>
-
-        {moreOpen && type === "transfer" && (
+        {type === "transfer" && (
           <div id={`${uid}-more-options`} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <input type="checkbox" checked={hasFee} onChange={(e) => setHasFee(e.target.checked)} className="h-4 w-4 accent-indigo-600" /> This transfer has a fee
@@ -243,7 +190,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
           </div>
         )}
 
-        {moreOpen && type !== "transfer" && (
+        {type !== "transfer" && (
           <div id={`${uid}-more-options`} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div>
               <label htmlFor={`${uid}-notes`} className="mb-1 block text-sm font-medium text-slate-700">Note (optional)</label>

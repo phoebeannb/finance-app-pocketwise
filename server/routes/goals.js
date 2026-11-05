@@ -70,13 +70,11 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// Savings are added automatically when income arrives, so this only takes money OUT of a goal
+// Positive amounts add money from an account into a goal; negative amounts withdraw it.
 router.post("/:id/funds", async (req, res) => {
   try {
     const amount = r2(Number(req.body.amount));
-    if (!Number.isFinite(amount) || amount === 0) return res.status(400).json({ message: "Enter an amount to withdraw" });
-    if (amount > 0)
-      return res.status(400).json({ message: "Savings are added automatically when you add income. You can only withdraw here." });
+    if (!Number.isFinite(amount) || amount === 0) return res.status(400).json({ message: "Enter an amount greater than zero" });
 
     const goal = await Goal.findOne({ _id: req.params.id, user: req.userId });
     if (!goal) return res.status(404).json({ message: "That goal wasn't found" });
@@ -88,12 +86,19 @@ router.post("/:id/funds", async (req, res) => {
     if (!acc) return res.status(400).json({ message: "That account wasn't found" });
     if (LIABILITIES.includes(acc.type))
       return res.status(400).json({ message: "Choose an account you own, not a card or loan" });
+    if (amount > 0 && amount > goal.target - goal.saved + 0.005)
+      return res.status(400).json({ message: "That contribution would exceed the goal target" });
+    if (amount < 0 && -amount > goal.saved + 0.005)
+      return res.status(400).json({ message: "You can't withdraw more than you've saved" });
 
     let date = req.body.date ? new Date(req.body.date) : new Date();
     if (Number.isNaN(date.getTime())) date = new Date();
 
     const updated = await Goal.findOneAndUpdate(
-      { _id: goal._id, user: req.userId, saved: { $gte: -amount - 0.005 } },
+      { _id: goal._id, user: req.userId, $expr: { $and: [
+        { $gte: [{ $add: ["$saved", amount] }, 0] },
+        { $lte: [{ $add: ["$saved", amount] }, { $add: ["$target", 0.005] }] },
+      ] } },
       { $inc: { saved: amount } },
       { new: true }
     );
@@ -102,8 +107,9 @@ router.post("/:id/funds", async (req, res) => {
 
     try {
       await Transaction.create({
-        user: req.userId, type: "transfer", amount: -amount, category: "Savings",
-        description: `Savings from ${goal.name}`, date, goal: goal._id, account: null, toAccount: accountId,
+        user: req.userId,         type: "transfer", amount: Math.abs(amount), category: "Savings",
+        description: amount > 0 ? `Saved for ${goal.name}` : `Withdrawn from ${goal.name}`,
+        date, goal: goal._id, account: amount > 0 ? accountId : null, toAccount: amount > 0 ? null : accountId,
       });
     } catch (err) {
       await Goal.updateOne({ _id: goal._id }, { $inc: { saved: -amount } });

@@ -5,12 +5,12 @@ import Modal from "./Modal";
 
 const pages = [
   ["Overview", "/", "Dashboard"],
-  ["Accounts", "/accounts", "Money"],
+  ["Wallets", "/accounts", "Money"],
   ["Transactions", "/transactions", "Money"],
   ["Budgets", "/budgets", "Planning"],
   ["Bills", "/bills", "Planning"],
   ["Goals", "/goals", "Planning"],
-  ["Reports", "/reports", "Analysis"],
+  ["Insights", "/reports", "Analysis"],
   ["Settings", "/settings", "Settings"],
   ["Profile settings", "/settings?tab=profile", "Settings"],
   ["Preferences", "/settings?tab=preferences", "Settings"],
