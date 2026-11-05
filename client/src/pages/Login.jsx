@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Wallet } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import PasswordInput from "../components/PasswordInput";
+import AuthLayout from "../components/AuthLayout";
 
 const input =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
@@ -31,21 +31,9 @@ export default function Login() {
   };
 
   return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-2">
-      <div className="hidden flex-col justify-between bg-zinc-950 p-10 text-white lg:flex">
-        <div className="flex items-center gap-2.5 text-lg font-semibold">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-zinc-950"><Wallet size={17} aria-hidden="true" /></span>
-          PocketWise
-        </div>
-        <p className="max-w-sm text-2xl font-semibold leading-snug">
-          Keep track of your income, expenses, bills and savings in one place.
-        </p>
-        <p className="text-sm text-zinc-400">© PocketWise</p>
-      </div>
-
-      <div className="flex items-center justify-center bg-[#f4f5f7] p-4 sm:p-6">
-        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-xl border border-slate-200 bg-white p-6 text-left sm:p-8">
-          <h1 className="text-2xl font-semibold text-slate-900">Log In</h1>
+    <AuthLayout>
+        <form onSubmit={handleSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-xl shadow-slate-200/60 sm:p-8">
+          <div><p className="text-sm font-semibold text-indigo-600">Welcome back</p><h1 className="mt-1 text-3xl font-semibold text-slate-900">Log in to PocketWise</h1><p className="mt-2 text-sm text-slate-600">Pick up where you left off.</p></div>
 
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -70,7 +58,6 @@ export default function Login() {
             No account yet? <Link to="/register" className="font-medium text-indigo-700 hover:underline">Create Account </Link>
           </p>
         </form>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

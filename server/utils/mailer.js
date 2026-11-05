@@ -16,18 +16,18 @@ function getTransporter() {
   return transporter;
 }
 
-export async function sendPasswordResetEmail({ to, name, link }) {
+export async function sendPasswordResetEmail({ to, name, code }) {
   const mailer = getTransporter();
   if (!mailer) {
-    if (process.env.NODE_ENV !== "production") console.info(`Password reset link for ${to}: ${link}`);
+    if (process.env.NODE_ENV !== "production")     console.info(`Password reset code for ${to}: ${code}`);
     return false;
   }
   await mailer.sendMail({
     from: process.env.MAIL_FROM || process.env.SMTP_USER,
     to,
     subject: "Reset your PocketWise password",
-    text: `Hi ${name || "there"},\n\nUse this link to reset your PocketWise password. It expires in 15 minutes:\n${link}\n\nIf you did not request this, you can ignore this email.`,
-    html: `<p>Hi ${escapeHtml(name || "there")},</p><p>Use the button below to reset your PocketWise password. This link expires in 15 minutes.</p><p><a href="${escapeHtml(link)}">Reset my password</a></p><p>If you did not request this, you can ignore this email.</p>`,
+    text: `Hi ${name || "there"},\n\nYour PocketWise password reset code is ${code}. It expires in 15 minutes.\n\nIf you did not request this, you can ignore this email.`,
+    html: `<p>Hi ${escapeHtml(name || "there")},</p><p>Your PocketWise password reset code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:8px">${escapeHtml(code)}</p><p>This code expires in 15 minutes. If you did not request this, you can ignore this email.</p>`,
   });
   return true;
 }

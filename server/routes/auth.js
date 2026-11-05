@@ -50,17 +50,39 @@ router.post("/forgot-password", async (req, res) => {
     const user = await User.findOne({ email: email?.trim().toLowerCase() });
 
     if (user) {
-      const token = crypto.randomBytes(32).toString("hex");
-      user.resetPasswordToken = crypto.createHash("sha256").update(token).digest("hex");
-      user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+      const code = String(crypto.randomInt(100000, 1000000));
+      user.resetPasswordCode = crypto.createHash("sha256").update(code).digest("hex");
+      user.resetPasswordCodeExpires = Date.now() + 15 * 60 * 1000;
       await user.save();
 
-      const link = `${process.env.CLIENT_URL}/reset-password/${token}`;
-      await sendPasswordResetEmail({ to: user.email, name: user.name, link });
+      await sendPasswordResetEmail({ to: user.email, name: user.name, code });
     }
 
     // Same answer whether or not the email exists, so nobody can probe for accounts
-    res.json({ message: "If that email exists, a reset link has been sent." });
+    res.json({ message: "If that email exists, a six-digit reset code has been sent." });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.post("/verify-reset-code", async (req, res) => {
+  try {
+    const email = req.body.email?.trim().toLowerCase();
+    const code = String(req.body.code || "").trim();
+    const user = await User.findOne({
+      email,
+      resetPasswordCode: crypto.createHash("sha256").update(code).digest("hex"),
+      resetPasswordCodeExpires: { $gt: Date.now() },
+    });
+    if (!user) return res.status(400).json({ message: "That code is invalid or has expired." });
+
+    const token = crypto.randomBytes(32).toString("hex");
+    user.resetPasswordToken = crypto.createHash("sha256").update(token).digest("hex");
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+    user.resetPasswordCode = undefined;
+    user.resetPasswordCodeExpires = undefined;
+    await user.save();
+    res.json({ token });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
