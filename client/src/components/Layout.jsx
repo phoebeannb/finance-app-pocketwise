@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings, TrendingUp,
-  LogOut, Plus, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle, Sun, Moon,
+  LogOut, Plus, MoreHorizontal, Users, Search, UserCircle, Sun, Moon, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -111,7 +111,7 @@ function SideNav({ labels, onToggle, badges }) {
           <button type="button" onClick={onToggle} aria-label={labels ? "Collapse the menu" : "Show menu labels"}
             title={labels ? "Collapse the menu" : "Show menu labels"}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
-            {labels ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
+            {labels ? <ChevronLeft size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
           </button>
         )}
       </div>
@@ -156,6 +156,7 @@ export default function Layout() {
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [wide, setWide] = useState(false); // tablet rail: show labels or not
+  const [desktopWide, setDesktopWide] = useState(true);
   const [quickOpen, setQuickOpen] = useState(false);
   const [billQuickOpen, setBillQuickOpen] = useState(false);
   const [quickInitial, setQuickInitial] = useState(null);
@@ -213,8 +214,8 @@ export default function Layout() {
           Skip to main content
         </a>
         {/* Desktop: full side menu */}
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-white text-slate-900 shadow-sm lg:block">
-          <SideNav labels badges={badges} />
+        <aside className={`sticky top-0 hidden h-screen shrink-0 border-r border-slate-200 bg-white text-slate-900 shadow-sm lg:block ${desktopWide ? "w-64" : "w-[72px]"}`}>
+          <SideNav labels={desktopWide} onToggle={() => setDesktopWide((value) => !value)} badges={badges} />
         </aside>
 
         {/* Tablet: icon rail (tap the arrow to show names) */}

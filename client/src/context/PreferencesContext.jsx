@@ -60,7 +60,17 @@ export function PreferencesProvider({ children }) {
   }, [user?.id, commit]);
 
   const save = useCallback(async (patch) => {
-    const { data } = await api.put("/profile/preferences", patch);
+    const payload = {
+      currency: prefsRef.current.currency,
+      dateFormat: prefsRef.current.dateFormat,
+      defaultAccount: prefsRef.current.defaultAccount || null,
+      reportRange: prefsRef.current.reportRange,
+      theme: prefsRef.current.theme,
+      accent: prefsRef.current.accent,
+      iconStyle: prefsRef.current.iconStyle,
+      ...patch,
+    };
+    const { data } = await api.put("/profile/preferences", payload);
     return commit({ ...DEFAULTS, ...data });
   }, [commit]);
 

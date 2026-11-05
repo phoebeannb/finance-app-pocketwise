@@ -136,6 +136,20 @@ option {
 [data-theme="dark"] .shadow-sm, [data-theme="dark"] .shadow-md, [data-theme="dark"] .shadow-lg { --tw-shadow-color: rgb(0 0 0 / 0.35); }
 [data-theme="dark"] .divide-slate-100 > :not(:last-child) { border-color: #334155; }
 [data-theme="dark"] .modern-card:hover { border-color: rgb(99 102 241 / 0.55); box-shadow: 0 8px 24px rgb(0 0 0 / 0.25); }
+[data-theme="dark"] .bg-indigo-50 { background-color: #312e81; }
+[data-theme="dark"] .bg-indigo-100 { background-color: #3730a3; }
+[data-theme="dark"] .bg-emerald-50, [data-theme="dark"] .bg-green-50 { background-color: #064e3b; }
+[data-theme="dark"] .bg-emerald-100, [data-theme="dark"] .bg-green-100 { background-color: #065f46; }
+[data-theme="dark"] .bg-rose-50, [data-theme="dark"] .bg-red-50 { background-color: #4c0519; }
+[data-theme="dark"] .bg-rose-100, [data-theme="dark"] .bg-red-100 { background-color: #881337; }
+[data-theme="dark"] .bg-amber-50 { background-color: #451a03; }
+[data-theme="dark"] .bg-amber-100 { background-color: #78350f; }
+[data-theme="dark"] .text-indigo-700 { color: #a5b4fc; }
+[data-theme="dark"] .text-green-700, [data-theme="dark"] .text-emerald-700 { color: #6ee7b7; }
+[data-theme="dark"] .text-red-700, [data-theme="dark"] .text-rose-700 { color: #fda4af; }
+[data-theme="dark"] .text-amber-700 { color: #fcd34d; }
+[data-theme="dark"] button:hover, [data-theme="dark"] a:hover { background-color: rgb(51 65 85 / 0.45); }
+[data-theme="dark"] .bg-indigo-600:hover { background-color: #6366f1; }
 
 ::selection {
   background: #c7d2fe;
