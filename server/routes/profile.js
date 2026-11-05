@@ -91,6 +91,7 @@ const prefsOf = async (user) => {
     theme: user.preferences?.theme === "dark" ? "dark" : "light",
     accent: ["indigo", "emerald", "rose", "amber"].includes(user.preferences?.accent) ? user.preferences.accent : "indigo",
     iconStyle: user.preferences?.iconStyle === "colorful" ? "colorful" : "classic",
+    persona: user.preferences?.persona || null,
   };
 };
 
@@ -108,6 +109,8 @@ router.put("/preferences", async (req, res) => {
     const accents = ["indigo", "emerald", "rose", "amber"];
     const accent = accents.includes(req.body.accent) ? req.body.accent : "indigo";
     const iconStyle = req.body.iconStyle === "colorful" ? "colorful" : "classic";
+    const personas = ["Employed", "Working student", "Student", "Freelancer", "Retiree", "Not working"];
+    const persona = personas.includes(req.body.persona) ? req.body.persona : null;
     if (!CURRENCIES.includes(currency)) return res.status(400).json({ message: "Choose a supported currency" });
     if (!DATE_FORMATS.includes(dateFormat)) return res.status(400).json({ message: "Choose a supported date format" });
     if (![6, 12].includes(reportRange)) return res.status(400).json({ message: "Choose 6 or 12 months for reports" });
@@ -122,7 +125,7 @@ router.put("/preferences", async (req, res) => {
 
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { $set: { "preferences.currency": currency, "preferences.dateFormat": dateFormat, "preferences.defaultAccount": defaultAccount, "preferences.reportRange": reportRange, "preferences.theme": theme, "preferences.accent": accent, "preferences.iconStyle": iconStyle } },
+      { $set: { "preferences.currency": currency, "preferences.dateFormat": dateFormat, "preferences.defaultAccount": defaultAccount, "preferences.reportRange": reportRange, "preferences.theme": theme, "preferences.accent": accent, "preferences.iconStyle": iconStyle, "preferences.persona": persona } },
       { new: true }
     );
     if (!user) return res.status(404).json({ message: "Not found" });

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import { card } from "../components/ui";
+import { usePrefs } from "../context/PreferencesContext";
 
 const ITEMS = [
   ["account", "Add a bank or wallet", "Connect the place where your money lives.", "/accounts"],
@@ -17,6 +18,7 @@ const storageKey = (email) => `pw_setup_${(email || "guest").toLowerCase()}`;
 
 export default function SetupGuide() {
   const { user } = useAuth();
+  const { prefs, save } = usePrefs();
   const key = storageKey(user?.email);
   const [done, setDone] = useState(() => {
     try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
@@ -59,6 +61,23 @@ export default function SetupGuide() {
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
             <WalletCards size={23} aria-hidden="true" />
           </div>
+
+          <section className={`${card} mb-5 p-4 sm:p-5`} aria-labelledby="persona-title">
+            <p className="text-sm font-semibold text-indigo-700">Personalize your experience</p>
+            <h3 id="persona-title" className="mt-1 text-lg font-semibold">What describes you?</h3>
+            <p className="mt-1 text-sm text-slate-600">We’ll use this to make PocketWise more relevant to your income and spending routine.</p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {["Employed", "Working student", "Student", "Freelancer", "Retiree", "Not working"].map((item) => (
+                <button key={item} type="button" onClick={() => save({ persona: item })}
+                  className={`rounded-xl border px-3 py-3 text-left text-sm font-medium transition ${prefs.persona === item ? "border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-100" : "border-slate-200 bg-white text-slate-700 hover:border-indigo-300"}`}>
+                  {item}
+                  <span className="mt-1 block text-xs font-normal text-slate-500">
+                    {item === "Employed" ? "Regular salary" : item === "Freelancer" ? "Client-based income" : item === "Student" || item === "Working student" ? "Allowance or part-time pay" : item === "Retiree" ? "Pension income" : "No regular income right now"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
           <h2 className="text-2xl font-semibold sm:text-3xl">Set up PocketWise</h2>
           <p className="mt-1 text-slate-600">Complete the steps that are useful for you. You can come back to this guide anytime.</p>
         </div>

@@ -234,7 +234,6 @@ export default function Dashboard() {
               <div className={`mt-2 text-4xl font-semibold ${summary.balance < 0 ? "text-red-700" : "text-slate-900"}`}>
                 {formatMoney(summary.balance)}
               </div>
-              <p className="mt-2 text-sm text-slate-600">Income minus expenses for {monthLabel(month)}.</p>
             </div>
             <div className={`${card} p-5 sm:p-6`}>
               <div className="flex items-center gap-2 text-sm text-slate-600">

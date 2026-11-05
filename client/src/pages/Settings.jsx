@@ -4,10 +4,12 @@ import PreferencesPanel from "../components/PreferencesPanel";
 import CategoriesManager from "../components/CategoriesManager";
 import DataPrivacy from "../components/DataPrivacy";
 import RecentlyDeleted from "./RecentlyDeleted";
+import NotificationPreferences from "../components/NotificationPreferences";
 
 const SECTIONS = [
   ["profile", "Profile", "", ProfileInfo],
   ["preferences", "Preferences", "", PreferencesPanel],
+  ["notifications", "Notifications", "Choose which financial alerts you want to receive.", NotificationPreferences],
   ["categories", "Categories", "", CategoriesManager],
   ["data", "Data & Privacy", "Download your data or delete your account.", DataPrivacy],
   ["deleted", "Recently Deleted", "Restore records deleted within the last 30 days.", RecentlyDeleted],

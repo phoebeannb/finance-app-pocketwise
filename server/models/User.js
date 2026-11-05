@@ -18,6 +18,13 @@ const userSchema = new mongoose.Schema({
     theme: { type: String, enum: ["light", "dark"], default: "light" },
     accent: { type: String, enum: ["indigo", "emerald", "rose", "amber"], default: "indigo" },
     iconStyle: { type: String, enum: ["classic", "colorful"], default: "classic" },
+    persona: { type: String, enum: ["Employed", "Working student", "Student", "Freelancer", "Retiree", "Not working"], default: null },
+    notifications: {
+      bills: { type: Boolean, default: true },
+      budgets: { type: Boolean, default: true },
+      balances: { type: Boolean, default: true },
+      debts: { type: Boolean, default: true },
+    },
   },
 }, { timestamps: true });
 

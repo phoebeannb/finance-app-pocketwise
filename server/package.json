@@ -5,7 +5,10 @@
   "description": "Backend server for the finance app",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "test": "node --test test/**/*.test.js",
+    "backup": "node scripts/backup.js"
   },
   "keywords": [],
   "author": "",

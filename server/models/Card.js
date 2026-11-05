@@ -9,6 +9,7 @@ const cardSchema = new mongoose.Schema({
   last4: { type: String, match: /^\d{4}$/ },
   dueDay: { type: Number, min: 1, max: 31, default: null },
   creditLimit: { type: Number, min: 0, default: null },
+  currentBalance: { type: Number, min: 0, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.model("Card", cardSchema);

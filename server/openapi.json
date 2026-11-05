@@ -1,0 +1,29 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PocketWise API",
+    "version": "1.0.0",
+    "description": "Authenticated API for PocketWise personal finance data."
+  },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/health": { "get": { "security": [], "responses": { "200": { "description": "Service is healthy" } } } },
+    "/budgets": {
+      "get": { "summary": "List budgets", "parameters": [{ "name": "period", "in": "query", "schema": { "type": "string", "enum": ["monthly", "weekly"] } }, { "name": "month", "in": "query", "schema": { "type": "string" } }], "responses": { "200": { "description": "Budget progress" } } },
+      "post": { "summary": "Create a budget", "responses": { "201": { "description": "Created" } } }
+    },
+    "/investments": { "get": { "summary": "List investment performance", "responses": { "200": { "description": "Investment summaries and entries" } } } },
+    "/investments/{accountId}/entries": { "post": { "summary": "Record an investment contribution, withdrawal, or valuation", "parameters": [{ "name": "accountId", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "201": { "description": "Created" } } } },
+    "/cards": { "get": { "summary": "List credit cards with utilization and payment history", "responses": { "200": { "description": "Credit cards" } } }, "post": { "summary": "Create a credit card", "responses": { "201": { "description": "Created" } } } },
+    "/cards/{id}/payments": { "post": { "summary": "Record a credit payment", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "201": { "description": "Created" } } } },
+    "/notifications": { "get": { "summary": "List active notifications", "responses": { "200": { "description": "Notifications" } } } },
+    "/notifications/{id}/read": { "post": { "summary": "Mark a notification as read", "responses": { "200": { "description": "Updated" } } } },
+    "/notifications/preferences": { "get": { "summary": "Get notification preferences", "responses": { "200": { "description": "Preferences" } } }, "put": { "summary": "Update notification preferences", "responses": { "200": { "description": "Updated" } } } }
+  }
+}

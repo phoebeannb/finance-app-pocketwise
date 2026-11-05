@@ -32,7 +32,7 @@ export default function PreferencesPanel() {
     form.dateFormat !== prefs.dateFormat ||
     (form.defaultAccount || null) !== (prefs.defaultAccount || null) ||
     form.reportRange !== prefs.reportRange ||
-    form.theme !== prefs.theme || form.accent !== prefs.accent || form.iconStyle !== prefs.iconStyle;
+    form.theme !== prefs.theme || form.accent !== prefs.accent || form.iconStyle !== prefs.iconStyle || form.persona !== prefs.persona;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -43,6 +43,7 @@ export default function PreferencesPanel() {
         currency: form.currency, dateFormat: form.dateFormat,
         defaultAccount: form.defaultAccount || null, reportRange: Number(form.reportRange),
         theme: form.theme, accent: form.accent, iconStyle: form.iconStyle,
+        persona: form.persona || null,
       });
     } catch { /* the red message explains what to fix */ } finally {
       setSaving(false);
@@ -70,6 +71,12 @@ export default function PreferencesPanel() {
         <Row label="Currency" hint="">
           <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className={inputClass}>
             {CURRENCIES.map(([code, name]) => <option key={code} value={code}>{code} · {name}</option>)}
+          </select>
+        </Row>
+        <Row label="What describes you?" hint="This helps tailor PocketWise to your routine.">
+          <select value={form.persona || ""} onChange={(e) => setForm({ ...form, persona: e.target.value || null })} className={inputClass}>
+            <option value="">Choose one</option>
+            {["Employed", "Working student", "Student", "Freelancer", "Retiree", "Not working"].map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </Row>
         <Row label="Date Format">

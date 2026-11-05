@@ -4,7 +4,7 @@ import { useAuth } from "./AuthContext";
 import { setCurrency } from "../utils/format";
 import { setDateFormat } from "../utils/datetime";
 
-const DEFAULTS = { currency: "PHP", dateFormat: "medium", defaultAccount: null, reportRange: 6, theme: "light", accent: "indigo", iconStyle: "classic" };
+const DEFAULTS = { currency: "PHP", dateFormat: "medium", defaultAccount: null, reportRange: 6, theme: "light", accent: "indigo", iconStyle: "classic", persona: null };
 const KEY = "pw_prefs";
 
 const readStored = () => {
@@ -68,6 +68,7 @@ export function PreferencesProvider({ children }) {
       theme: prefsRef.current.theme,
       accent: prefsRef.current.accent,
       iconStyle: prefsRef.current.iconStyle,
+      persona: prefsRef.current.persona || null,
       ...patch,
     };
     const { data } = await api.put("/profile/preferences", payload);

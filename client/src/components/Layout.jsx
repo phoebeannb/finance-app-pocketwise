@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings, TrendingUp,
-  LogOut, Plus, MoreHorizontal, Users, Search, UserCircle, Sun, Moon, ChevronLeft, ChevronRight,
+  LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
+  LogOut, Plus, MoreHorizontal, Users, Search, UserCircle, Sun, Moon, ChevronLeft, ChevronRight, CreditCard,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -24,17 +24,17 @@ const TRANSACTIONS = { to: "/transactions", label: "Transactions", icon: ArrowLe
 const DEBTS = { to: "/debts", label: "Who Owes You", icon: Users };
 const BUDGETS = { to: "/budgets", label: "Budgets", icon: Gauge, badge: "budgets" };
 const UPCOMING = { to: "/bills", label: "Upcoming", icon: CalendarClock, badge: "bills" };
-const INVESTMENTS = { to: "/investments", label: "Investments", icon: TrendingUp };
+const CREDIT = { to: "/credit-tracking", label: "Credit Tracking", icon: CreditCard };
 const GOALS = { to: "/goals", label: "Goals", icon: Target };
 const REPORTS = { to: "/reports", label: "Insights", icon: BarChart3 };
 const SETTINGS = { to: "/settings", label: "Settings", icon: Settings };
 
 const GROUPS = [
-  { title: "Money", links: [OVERVIEW, ACCOUNTS, TRANSACTIONS, DEBTS, UPCOMING] },
-  { title: "Planning", links: [BUDGETS, GOALS, INVESTMENTS] },
+  { title: "Money", links: [OVERVIEW, ACCOUNTS, TRANSACTIONS, DEBTS, CREDIT, UPCOMING] },
+  { title: "Planning", links: [BUDGETS, GOALS] },
   { title: "Analysis", links: [REPORTS] },
 ];
-const MORE = [ACCOUNTS, TRANSACTIONS, DEBTS, UPCOMING, GOALS, INVESTMENTS, REPORTS];
+const MORE = [ACCOUNTS, TRANSACTIONS, DEBTS, CREDIT, UPCOMING, GOALS, REPORTS];
 
 const daysUntil = (iso) => {
   const d = new Date();

@@ -16,6 +16,7 @@ const field =
 
 export default function Budgets() {
   const [month, setMonth] = useState(monthNow());
+  const [period, setPeriod] = useState("monthly");
   const [budgets, setBudgets] = useState(null);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState("");
@@ -32,7 +33,7 @@ export default function Budgets() {
   const load = useCallback(async () => {
     try {
       const [b, s] = await Promise.all([
-        api.get("/budgets", { params: { month } }),
+        api.get("/budgets", { params: { month, period } }),
         api.get("/transactions/summary", { params: { month } }),
       ]);
       setBudgets(b.data);
@@ -41,7 +42,7 @@ export default function Budgets() {
     } catch (err) {
       setError(err.response ? "Could not load budgets." : "Can't reach the server. Make sure it's running, then try again.");
     }
-  }, [month]);
+  }, [month, period]);
   useEffect(() => { load(); }, [load]);
 
   const isCurrent = month === monthNow();
@@ -59,8 +60,8 @@ export default function Budgets() {
       .sort((a, b) => b.total - a.total);
   }, [budgets, summary]);
 
-  const openAdd = (category = "") => { reload(); setEditing(null); setForm({ category, limit: "" }); setFormError(""); setOpen(true); };
-  const openEdit = (b) => { setEditing(b); setForm({ category: b.category, limit: b.limit }); setFormError(""); setOpen(true); };
+  const openAdd = (category = "") => { reload(); setEditing(null); setForm({ category, limit: "", rollover: false }); setFormError(""); setOpen(true); };
+  const openEdit = (b) => { setEditing(b); setPeriod(b.period || "monthly"); setForm({ category: b.category, limit: b.limit, rollover: b.rollover === true }); setFormError(""); setOpen(true); };
 
   const available = expense.filter((c) => !(budgets || []).some((b) => b.category.toLowerCase() === c.toLowerCase()));
   const options = form.category && !available.includes(form.category) ? [form.category, ...available] : available;
@@ -74,7 +75,7 @@ export default function Budgets() {
     e.preventDefault();
     if (saving) return;
     setFormError("");
-    const payload = { category: form.category, limit: Number(form.limit) };
+    const payload = { category: form.category, limit: Number(form.limit), period, rollover: form.rollover === true };
     if (!payload.category) return setFormError("Choose a category.");
     if (!Number.isFinite(payload.limit) || payload.limit <= 0) return setFormError("Enter a monthly limit greater than zero.");
     setSaving(true);
@@ -96,8 +97,12 @@ export default function Budgets() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold">Budgets</h2>
+          <p className="mt-1 text-sm text-slate-600">Plan weekly or monthly spending and carry unused funds forward.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
+            {["monthly", "weekly"].map((value) => <button key={value} onClick={() => setPeriod(value)} className={`rounded-md px-2 py-1 text-xs font-medium ${period === value ? "bg-indigo-100 text-indigo-700" : "text-slate-500"}`}>{value[0].toUpperCase() + value.slice(1)}</button>)}
+          </div>
           <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
             <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Previous month" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"><ChevronLeft size={18} /></button>
             <span className="min-w-32 px-2 text-center text-sm font-medium">{monthLabel(month)}</span>
@@ -116,7 +121,7 @@ export default function Budgets() {
       {budgets && (
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Budget" value={formatMoney(totals.limit)} />
+            <Stat label={`${period[0].toUpperCase() + period.slice(1)} budget`} value={formatMoney(totals.limit)} />
             <Stat label="Spent on budgeted" value={formatMoney(totals.spent)} color="text-slate-900" />
             <Stat label="Spending without a budget" value={formatMoney(unbudgeted.reduce((s, c) => s + c.total, 0))}
             color="text-amber-600" />
@@ -137,7 +142,7 @@ export default function Budgets() {
                   return (
                     <tr key={b._id}>
                       <td className="font-medium">{b.category}</td>
-                      <td className="num">{formatMoney(b.limit)}</td>
+                      <td className="num">{formatMoney(b.available ?? b.limit)}</td>
                       <td className="num">{formatMoney(b.spent)}</td>
                       <td className={`num font-medium ${left < 0 ? "text-red-600" : "text-slate-700"}`}>
                         {left < 0 ? `-${formatMoney(-left)}` : formatMoney(left)}
@@ -207,9 +212,10 @@ export default function Budgets() {
             {options.map((c) => <option key={c} value={c}>{c}</option>)}
             {!editing && <option value="__new__">+ Create category...</option>}
           </select>
-          <label className="block text-sm font-medium text-slate-700">Monthly limit</label>
+          <label className="block text-sm font-medium text-slate-700">{period === "weekly" ? "Weekly limit" : "Monthly limit"}</label>
           <input type="number" min="1" step="0.01" placeholder="e.g. 5000" value={form.limit}
             onChange={(e) => setForm({ ...form, limit: e.target.value })} required className={field} />
+          <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={form.rollover === true} onChange={(e) => setForm({ ...form, rollover: e.target.checked })} /> Carry unused funds into the next period</label>
           <button type="submit" disabled={saving} className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
             {saving ? "Saving..." : editing ? "Save Changes" : "Add budget"}
           </button>

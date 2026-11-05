@@ -12,9 +12,16 @@ router.use(auth);
 
 // Each budget comes back with how much was spent on it this month
 router.get("/", async (req, res) => {
+  const period = req.query.period === "weekly" ? "weekly" : "monthly";
   const m = /^(\d{4})-(\d{2})$/.exec(req.query.month || "");
   let from, to;
-  if (m) {
+  if (period === "weekly") {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.week || "") ? new Date(`${req.query.week}T00:00:00.000Z`) : new Date();
+    const day = date.getUTCDay();
+    from = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - (day || 7) + 1));
+    to = new Date(from);
+    to.setUTCDate(to.getUTCDate() + 7);
+  } else if (m) {
     from = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1));
     to = new Date(Date.UTC(Number(m[1]), Number(m[2]), 1));
   } else {
@@ -22,7 +29,7 @@ router.get("/", async (req, res) => {
     to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
   }
 
-  const budgets = await Budget.find({ user: req.userId }).sort({ createdAt: 1 }).lean();
+  const budgets = await Budget.find({ user: req.userId, period }).sort({ createdAt: 1 }).lean();
   const categories = await Category.find({ user: req.userId }).select("name parent").lean();
   const parentByKey = Object.fromEntries(categories.filter((c) => c.parent).map((c) => [c.name.toLowerCase(), c.parent]));
   const spent = await Transaction.aggregate([
@@ -37,7 +44,20 @@ router.get("/", async (req, res) => {
     out[parent] = (out[parent] || 0) + total;
     return out;
   }, {});
-  res.json(budgets.map((b) => ({ ...b, spent: rolled[b.category.toLowerCase()] || 0 })));
+  const previousFrom = new Date(from);
+  const previousTo = new Date(to);
+  previousFrom.setTime(previousFrom.getTime() - (to - from));
+  previousTo.setTime(previousTo.getTime() - (to - from));
+  const previousTransactions = await Transaction.aggregate([
+    { $match: { user: new mongoose.Types.ObjectId(req.userId), type: "expense", date: { $gte: previousFrom, $lt: previousTo } } },
+    { $group: { _id: { $toLower: "$category" }, total: { $sum: "$amount" } } },
+  ]);
+  const previousSpent = Object.fromEntries(previousTransactions.map((row) => [row._id, row.total]));
+  res.json(budgets.map((b) => {
+    const spentAmount = rolled[b.category.toLowerCase()] || 0;
+    const priorRemaining = b.rollover ? Math.max(0, b.limit - (previousSpent[b.category.toLowerCase()] || 0)) : 0;
+    return { ...b, spent: spentAmount, carryIn: priorRemaining, available: b.limit + priorRemaining };
+  }));
 });
 
 router.post("/", async (req, res) => {
@@ -46,6 +66,8 @@ router.post("/", async (req, res) => {
       user: req.userId,
       category: req.body.category,
       limit: Number(req.body.limit),
+      period: req.body.period === "weekly" ? "weekly" : "monthly",
+      rollover: req.body.rollover === true,
     });
     res.status(201).json(budget);
   } catch (err) {
@@ -58,7 +80,7 @@ router.put("/:id", async (req, res) => {
   try {
     const budget = await Budget.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
-      { limit: Number(req.body.limit) },
+      { limit: Number(req.body.limit), period: req.body.period === "weekly" ? "weekly" : "monthly", rollover: req.body.rollover === true },
       { new: true, runValidators: true }
     );
     if (!budget) return res.status(404).json({ message: "Not found" });

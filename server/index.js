@@ -23,6 +23,10 @@ import safeRoutes from "./routes/safe.js";
 import insightRoutes from "./routes/insights.js";
 import demoRoutes from "./routes/demo.js";
 import searchRoutes from "./routes/search.js";
+import { fileURLToPath } from "url";
+import investmentRoutes from "./routes/investments.js";
+import notificationRoutes from "./routes/notifications.js";
+import Budget from "./models/Budget.js";
 
 
 
@@ -51,10 +55,15 @@ app.use("/api/safe-to-spend", safeRoutes);
 app.use("/api/insights", insightRoutes);
 app.use("/api/demo", demoRoutes);
 app.use("/api/search", searchRoutes);
+app.use("/api/investments", investmentRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.get("/api/openapi.json", (req, res) => res.sendFile(fileURLToPath(new URL("./openapi.json", import.meta.url))));
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     await Transaction.init(); // make sure the "no double posting" index exists before anything runs
+    await Budget.collection.dropIndex("user_1_category_1").catch(() => {});
+    await Budget.init();
     app.listen(process.env.PORT, () => console.log("Server running"));
     startScheduler();
   })

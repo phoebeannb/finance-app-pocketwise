@@ -35,6 +35,9 @@ const SUCCESS = [
   ["post", /^\/budgets$/, "Budget added."],
   ["put", /^\/budgets\/[^/]+$/, "Budget updated."],
   ["delete", /^\/budgets\/[^/]+$/, "Budget deleted."],
+  ["post", /^\/cards$/, "Credit card added."],
+  ["post", /^\/cards\/[^/]+\/payments$/, "Credit payment recorded."],
+  ["post", /^\/investments\/[^/]+\/entries$/, "Investment entry recorded."],
 
   ["post", /^\/goals$/, "Goal created."],
   ["put", /^\/goals\/[^/]+$/, "Goal updated."],
