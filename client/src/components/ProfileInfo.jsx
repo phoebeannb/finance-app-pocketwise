@@ -51,6 +51,7 @@ export default function ProfileInfo() {
     try {
       const image = await resizeToDataUrl(file, 500, 0.82);
       setProfile((current) => ({ ...current, profilePhoto: image }));
+      await savePhoto(image);
     } catch {
       // The image helper rejects unreadable files; the browser keeps the current photo.
     }

@@ -9,10 +9,10 @@ import { nowLocalInput, toStored, toInput } from "../utils/datetime";
 import { toast } from "../utils/toast";
 import Modal from "./Modal";
 import CategoryModal from "./CategoryModal";
-import TagInput from "./TagInput";
 import ReceiptField from "./ReceiptField";
 import MoodPrompt from "./MoodPrompt";
 import TransactionConfirmation from "./TransactionConfirmation";
+import { categoryVisual } from "./CategoryLabel";
 
 const LAST_KEY = "pw_last_account";
 
@@ -36,6 +36,24 @@ function Field({ label, htmlFor, children }) {
     <div>
       <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function CategoryPicker({ categories, value, onChange, label = "Category" }) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
+      {categories.map((category) => {
+        const [Icon, color] = categoryVisual({ category, type: "expense", description: "" });
+        const selected = value.toLowerCase() === category.toLowerCase();
+        return (
+          <button type="button" key={category} title={category} aria-label={category} aria-pressed={selected}
+            onClick={() => onChange(category)}
+            className={`flex h-11 w-11 items-center justify-center rounded-xl border ${selected ? "border-indigo-500 ring-2 ring-indigo-100" : "border-slate-200"} ${color}`}>
+            <Icon size={20} aria-hidden="true" />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -319,14 +337,11 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
                 </div>
               )}
 
-              <Field label="Category" htmlFor="tx-category">
+              <Field label="Category">
                 <div className="flex gap-2">
-                  <select id="tx-category" name="category" value={form.category} onChange={handleChange} required={!splitEnabled} className={`${field} min-w-0`}>
-                    <option value="" disabled>Select category</option>
-                    {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <CategoryPicker categories={cats} value={form.category} onChange={(category) => setForm({ ...form, category })} />
                   <button type="button" onClick={() => setCatOpen(true)} title="Add category" aria-label="Add category"
-                    className="shrink-0 rounded-lg border border-slate-300 px-3 text-slate-600 hover:bg-slate-50">
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-600 hover:bg-slate-50">
                     <Plus size={18} aria-hidden="true" />
                   </button>
                 </div>
@@ -341,11 +356,8 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
                   <div className="mt-3 space-y-2">
                     {splits.map((part, index) => (
                       <div key={index} className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
-                        <select aria-label={`Split ${index + 1} category`} value={part.category}
-                          onChange={(e) => setSplits((rows) => rows.map((row, i) => i === index ? { ...row, category: e.target.value } : row))} className={field}>
-                          <option value="">Category</option>
-                          {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        <CategoryPicker label={`Split ${index + 1} category`} categories={cats} value={part.category}
+                          onChange={(category) => setSplits((rows) => rows.map((row, i) => i === index ? { ...row, category } : row))} />
                         <input aria-label={`Split ${index + 1} amount`} type="number" min="0.01" step="0.01" placeholder="Amount" value={part.amount}
                           onChange={(e) => setSplits((rows) => rows.map((row, i) => i === index ? { ...row, amount: e.target.value } : row))} className={field} />
                       </div>
@@ -405,14 +417,6 @@ export default function TransactionModal({ open, onClose, onSaved, editing, init
           <Field label="Description" htmlFor="tx-description">
             <input id="tx-description" name="description" placeholder="Optional note" value={form.description} onChange={handleChange} className={field} />
           </Field>
-
-          {!isTransfer && (
-            <>
-              <Field label="Tags (optional)">
-                <TagInput value={form.tags} onChange={(tags) => setForm({ ...form, tags })} />
-              </Field>
-            </>
-          )}
 
           <Field label="Notes (optional)" htmlFor="tx-notes">
             <textarea id="tx-notes" name="notes" rows={2} maxLength={500} value={form.notes} onChange={handleChange}

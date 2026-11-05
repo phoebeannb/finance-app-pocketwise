@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   LayoutDashboard, Landmark, ArrowLeftRight, Gauge, CalendarClock, Target, BarChart3, Settings,
-  LogOut, Plus, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle, ChevronDown,
+  LogOut, Plus, MoreHorizontal, PanelLeftOpen, PanelLeftClose, Users, Search, UserCircle, Sun, Moon,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -16,6 +16,7 @@ import Shortcuts from "./Shortcuts";
 import ConfirmModal from "./ConfirmModal";
 import NotificationCenter from "./NotificationCenter";
 import GlobalSearchModal from "./GlobalSearchModal";
+import { usePrefs } from "../context/PreferencesContext";
 
 const OVERVIEW = { to: "/", label: "Overview", icon: LayoutDashboard, end: true };
 const ACCOUNTS = { to: "/accounts", label: "Accounts", icon: Landmark };
@@ -69,7 +70,7 @@ function Brand({ labels }) {
   return (
     <div className="flex items-center gap-2.5">
       <span className="flex h-14 w-14 shrink-0 items-center justify-center">
-        <img src="/wallet_logo.png" alt="" className="h-14 w-14 object-contain brightness-0 invert" />
+        <img src="/wallet_logo.png" alt="" className="h-14 w-14 object-contain" />
       </span>
       {labels && <span className="text-lg font-semibold">PocketWise</span>}
     </div>
@@ -82,7 +83,7 @@ function NavItem({ item, labels, badges }) {
     <NavLink to={item.to} end={item.end} title={labels ? undefined : item.label} aria-label={labels ? undefined : item.label}
       className={({ isActive }) =>
         `relative flex items-center rounded-lg text-sm font-medium ${labels ? "gap-3 px-3 py-2.5" : "h-11 w-11 justify-center"} ${
-          isActive ? "bg-indigo-500/25 text-white before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-indigo-300" : "text-zinc-300 hover:bg-white/5 hover:text-white"
+          isActive ? "bg-blue-500 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         }`}>
       <item.icon className="nav-icon" size={18} aria-hidden="true" />
       {labels && <span className="flex-1">{item.label}</span>}
@@ -108,7 +109,7 @@ function SideNav({ labels, onToggle, badges }) {
         {onToggle && (
           <button type="button" onClick={onToggle} aria-label={labels ? "Collapse the menu" : "Show menu labels"}
             title={labels ? "Collapse the menu" : "Show menu labels"}
-            className="rounded-lg p-2 text-zinc-300 hover:bg-white/10 hover:text-white">
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
             {labels ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
           </button>
         )}
@@ -148,6 +149,7 @@ function TabLink({ item, badges }) {
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { prefs, save } = usePrefs();
   const location = useLocation();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -210,17 +212,17 @@ export default function Layout() {
           Skip to main content
         </a>
         {/* Desktop: full side menu */}
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-gradient-to-b from-slate-950 to-slate-900 text-white shadow-xl lg:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-slate-200 bg-white text-slate-900 shadow-sm lg:block">
           <SideNav labels badges={badges} />
         </aside>
 
         {/* Tablet: icon rail (tap the arrow to show names) */}
-        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-gradient-to-b from-slate-950 to-slate-900 text-white shadow-xl sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 border-r border-slate-200 bg-white text-slate-900 shadow-sm sm:block lg:hidden ${wide ? "w-56" : "w-[72px]"}`}>
           <SideNav labels={wide} onToggle={() => setWide((w) => !w)} badges={badges} />
         </aside>
 
         <main id="main-content" tabIndex={-1} className="app-main min-w-0 flex-1 p-4 pb-28 outline-none sm:p-6 sm:pb-8 lg:p-8">
-          <header className="mb-6 flex flex-wrap items-center gap-3">
+          <header className="app-surface -mx-4 -mt-4 mb-6 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8">
             <form onSubmit={submitSearch} className="relative min-w-[min(100%,18rem)] flex-1 sm:max-w-xl">
               <Search size={17} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />
               <input
@@ -234,6 +236,11 @@ export default function Layout() {
               <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 sm:block">Ctrl K</kbd>
             </form>
             <div className="relative ml-auto flex items-center gap-2" ref={profileRef}>
+              <button type="button" onClick={() => save({ theme: prefs.theme === "dark" ? "light" : "dark" })}
+                aria-label={`Switch to ${prefs.theme === "dark" ? "light" : "dark"} mode`} title="Toggle light/dark mode"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+                {prefs.theme === "dark" ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+              </button>
               <NotificationCenter compact />
               <button type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="Open profile menu"
                 aria-expanded={profileOpen} aria-haspopup="menu" title="Profile"

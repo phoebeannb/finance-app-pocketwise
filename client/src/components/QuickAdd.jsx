@@ -7,10 +7,11 @@ import { formatMoney } from "../utils/format";
 import { nowLocalInput, toStored } from "../utils/datetime";
 import { toast } from "../utils/toast";
 import Modal from "./Modal";
-import TagInput from "./TagInput";
 import ReceiptField from "./ReceiptField";
 import MoodPrompt from "./MoodPrompt";
 import TransactionConfirmation from "./TransactionConfirmation";
+import CategoryModal from "./CategoryModal";
+import { categoryVisual } from "./CategoryLabel";
 
 const LAST_KEY = "pw_last_account";
 const field =
@@ -23,7 +24,6 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [notes, setNotes] = useState("");
-  const [tags, setTags] = useState([]);
   const [receipt, setReceipt] = useState({ status: "none" });
   const [category, setCategory] = useState("");
   const [account, setAccount] = useState("");
@@ -36,6 +36,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const applyReceiptScan = (data) => {
     if (data.amount) setAmount(String(data.amount));
     if (data.description && !note) setNote(data.description);
@@ -48,7 +49,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
 
   useEffect(() => {
     if (!open) return;
-    setType(["income", "expense", "transfer"].includes(initial?.type) ? initial.type : "expense"); setAmount(""); setNote(""); setNotes(""); setTags([]); setReceipt({ status: "none" });
+    setType(["income", "expense", "transfer"].includes(initial?.type) ? initial.type : "expense"); setAmount(""); setNote(""); setNotes(""); setReceipt({ status: "none" });
     setCategory(""); setHint(""); setAccount(""); setToAccount(""); setHasFee(false); setFee("");
     setMoreOpen(false);
     setConfirmation(null);
@@ -91,7 +92,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
   };
   const moreCount = type === "transfer"
     ? (hasFee ? 1 : 0)
-    : [notes.trim(), tags.length > 0 ? "tags" : "", receipt.status !== "none" ? "receipt" : ""].filter(Boolean).length;
+    : [notes.trim(), receipt.status !== "none" ? "receipt" : ""].filter(Boolean).length;
   const submit = async (e) => {
     e.preventDefault();
     const n = Number(amount);
@@ -105,7 +106,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
       const res = await api.post(
         "/transactions",
         {
-          type, amount: n, description: note.trim(), notes: notes.trim(), tags: type === "transfer" ? [] : tags,
+          type, amount: n, description: note.trim(), notes: notes.trim(), tags: [],
           category, mood: "", account: account || null,
           splits: [],
           toAccount: type === "transfer" ? toAccount : null, fee: type === "transfer" && hasFee ? Number(fee) : 0, date: toStored(nowLocalInput()),
@@ -171,7 +172,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
 
         <div>
           <label htmlFor={`${uid}-note`} className="mb-1 block text-sm font-medium text-slate-700">
-            What was it for? <span className="font-normal text-slate-600">(description)</span>
+            Description
           </label>
           <input id={`${uid}-note`} value={note} maxLength={200} placeholder="e.g. lunch at Jollibee" onChange={(e) => setNote(e.target.value)} className={field} />
           <p className="mt-1 text-xs text-slate-600">A short label that helps you recognize the transaction.</p>
@@ -182,10 +183,20 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
             <span className="text-sm font-medium text-slate-700" id={`${uid}-cat`}>Category</span>
             {hint && category && <span className="text-xs text-slate-600">{hint}</span>}
           </div>
-          <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
-            <option value="">Select category</option>
-            {all.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            {all.map((c) => {
+              const [Icon, color] = categoryVisual({ category: c, type, description: "" });
+              return <button type="button" key={c} title={c} aria-label={c} aria-pressed={category === c}
+                onClick={() => setCategory(c)}
+                className={`flex h-11 w-11 items-center justify-center rounded-xl border ${category === c ? "border-indigo-500 ring-2 ring-indigo-100" : "border-slate-200"} ${color}`}>
+                <Icon size={20} aria-hidden="true" />
+              </button>;
+            })}
+            <button type="button" onClick={() => setCategoryOpen(true)} title="Add category" aria-label="Add category"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-600 hover:bg-slate-50">
+              <span className="text-xl" aria-hidden="true">+</span>
+            </button>
+          </div>
         
         </div>}
 
@@ -218,7 +229,7 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
           className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
           <span className="text-left">
             <span className="block">{moreOpen ? "Hide more options" : "More options"}{moreCount > 0 && <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800">{moreCount} added</span>}</span>
-            {!moreOpen && <span className="mt-0.5 block text-xs font-normal text-slate-600">{type === "transfer" ? "Add a transfer fee" : "Notes, tags, or a receipt"}</span>}
+            {!moreOpen && <span className="mt-0.5 block text-xs font-normal text-slate-600">{type === "transfer" ? "Add a transfer fee" : "Notes or a receipt"}</span>}
           </span>
           <span aria-hidden="true">{moreOpen ? "−" : "+"}</span>
         </button>
@@ -240,10 +251,6 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
                 placeholder="Anything you want to remember" onChange={(e) => setNotes(e.target.value)} className={field} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Tags (optional)</label>
-              <TagInput value={tags} onChange={setTags} />
-            </div>
-            <div>
               <span className="mb-1 block text-sm font-medium text-slate-700">Receipt (optional)</span>
               <ReceiptField txId={null} state={receipt} onChange={setReceipt} onScan={applyReceiptScan} />
             </div>
@@ -257,6 +264,8 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
 
       </form>
     </Modal>
+    <CategoryModal open={categoryOpen} type={type === "income" ? "income" : "expense"} existing={all}
+      onClose={() => setCategoryOpen(false)} onCreated={(name) => { setCategory(name); reload(); }} />
     <TransactionConfirmation
       open={Boolean(confirmation)}
       transaction={confirmation}

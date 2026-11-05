@@ -24,7 +24,7 @@ import { IconButton, Empty, ErrorBar, card } from "../components/ui";
 const PAGE_SIZE = 20;
 const TYPES = ["income", "expense", "transfer"];
 const TYPE_TABS = [["all", "All"], ["income", "Income"], ["expense", "Expense"], ["transfer", "Transfer"]];
-const emptyFilters = { q: "", type: "all", category: "", account: "", from: "", to: "", min: "", max: "", tag: "" };
+const emptyFilters = { q: "", type: "all", category: "", account: "", from: "", to: "", min: "", max: "" };
 
 const field =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
@@ -39,7 +39,7 @@ function useDebounced(value, ms = 300) {
   return v;
 }
 
-// Filters can arrive in the address (clicking a chart, a tag, or the command palette)
+// Filters can arrive in the address (clicking a chart or the command palette)
 function readUrl(params) {
   return {
     filters: {
@@ -50,7 +50,6 @@ function readUrl(params) {
       account: params.get("account") || "",
       from: params.get("from") || "",
       to: params.get("to") || "",
-      tag: (params.get("tag") || "").toLowerCase(),
     },
     unsorted: params.get("inbox") === "1",
   };
@@ -107,11 +106,10 @@ export default function Transactions() {
     to: filters.to || undefined,
     min: dmin || undefined,
     max: dmax || undefined,
-    tag: filters.tag || undefined,
     uncategorized: unsorted ? "1" : undefined,
     page,
     pageSize: PAGE_SIZE,
-  }), [dq, dmin, dmax, filters.type, filters.category, filters.account, filters.from, filters.to, filters.tag, unsorted, page]);
+  }), [dq, dmin, dmax, filters.type, filters.category, filters.account, filters.from, filters.to, unsorted, page]);
 
   const load = useCallback(
     () => api.get("/transactions/search", { params: queryParams })
@@ -136,7 +134,7 @@ export default function Transactions() {
     return [...m.entries()];
   }, [data]);
 
-  const activeCount = [filters.category, filters.account, filters.from, filters.to, filters.min, filters.max, filters.tag].filter(Boolean).length;
+  const activeCount = [filters.category, filters.account, filters.from, filters.to, filters.min, filters.max].filter(Boolean).length;
   const hasAnyFilter = activeCount > 0 || filters.q || filters.type !== "all" || unsorted;
   const start = data ? (data.page - 1) * data.pageSize + 1 : 0;
   const end = data ? start + data.items.length - 1 : 0;
@@ -157,7 +155,6 @@ export default function Transactions() {
       clear: () => update({ from: "", to: "" }),
     },
     filters.account && { key: "acc", label: accountName || "Account", clear: () => update({ account: "" }) },
-    filters.tag && { key: "tag", label: `#${filters.tag}`, clear: () => update({ tag: "" }) },
     filters.q && { key: "q", label: `“${filters.q}”`, clear: () => update({ q: "" }) },
   ].filter(Boolean);
 
@@ -281,7 +278,7 @@ export default function Transactions() {
       <div className="mb-3 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input value={filters.q} onChange={(e) => update({ q: e.target.value })} placeholder="Search description, category, notes or tags"
+          <input value={filters.q} onChange={(e) => update({ q: e.target.value })} placeholder="Search description, category, or notes"
             aria-label="Search transactions"
             className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
           {filters.q && (
@@ -320,10 +317,6 @@ export default function Transactions() {
               <option value="">All accounts</option>
               {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
             </select>
-          </div>
-          <div>
-            <label htmlFor="f-tag" className="mb-1 block text-xs font-medium text-slate-600">Tag</label>
-            <input id="f-tag" value={filters.tag} onChange={(e) => update({ tag: e.target.value.replace(/^#/, "").toLowerCase() })} placeholder="e.g. trip" className={field} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -444,14 +437,6 @@ export default function Transactions() {
                       </div>
                       {txNote(t) && <div className={`truncate text-sm ${hasNote(t) ? "text-slate-700" : "italic text-slate-600"}`} title={txNote(t)}>{txNote(t)}</div>}
                       {meta && <div className="text-xs text-slate-600">{meta}</div>}
-                      {t.tags?.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {t.tags.map((tag) => (
-                            <button key={tag} onClick={() => update({ tag })} title={`Show everything tagged #${tag}`}
-                              className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-200">#{tag}</button>
-                          ))}
-                        </div>
-                      )}
                       {t.notes && <div className="mt-0.5 truncate text-xs text-slate-600" title={t.notes}>{t.notes}</div>}
                     </div>
                     <div className={`ml-auto shrink-0 text-right text-base font-semibold tabular-nums sm:text-lg ${txColor(t)}`}>{txSign(t)}{formatMoney(t.amount)}</div>
