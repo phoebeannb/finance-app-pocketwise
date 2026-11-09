@@ -391,7 +391,7 @@ export default function Transactions() {
                 <button onClick={() => setImportOpen(true)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Import a CSV</button>
               </>
             }>
-            Log what you spend and earn. Everything shows up here, newest first.
+            
           </Empty>
         )
       )}

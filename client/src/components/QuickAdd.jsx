@@ -167,10 +167,10 @@ export default function QuickAdd({ open, initial, onClose, onSaved, onMore }) {
 
         {type === "transfer" && (
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-slate-700">From account
+            <label className="block text-sm font-medium text-slate-700">
               <AccountPicker label="From account" accounts={accounts} value={account} onChange={setAccount} />
             </label>
-            <label className="block text-sm font-medium text-slate-700">To account
+            <label className="block text-sm font-medium text-slate-700">
               <AccountPicker label="To account" accounts={accounts} value={toAccount} onChange={setToAccount} exclude={[account]} />
             </label>
           </div>

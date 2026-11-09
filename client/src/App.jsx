@@ -13,7 +13,6 @@ import Bills from "./pages/Bills";
 import Goals from "./pages/Goals";
 import Reports from "./pages/Reports";
 import Investments from "./pages/Investments";
-import CreditTracking from "./pages/CreditTracking";
 import AssetsLoans from "./pages/AssetsLoans";
 import Settings from "./pages/Settings";
 import SetupGuide from "./pages/SetupGuide";
@@ -42,7 +41,7 @@ export default function App() {
         <Route path="/goals" element={<Goals />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/investments" element={<Investments />} />
-        <Route path="/credit-tracking" element={<CreditTracking />} />
+        <Route path="/credit-tracking" element={<Navigate to="/" replace />} />
         <Route path="/assets-loans" element={<AssetsLoans />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

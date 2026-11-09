@@ -5,7 +5,7 @@ import PasswordInput from "../components/PasswordInput";
 import AuthLayout from "../components/AuthLayout";
 
 const input =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100";
 
 export default function Login() {
   const { login } = useAuth();
@@ -32,8 +32,8 @@ export default function Login() {
 
   return (
     <AuthLayout>
-        <form onSubmit={handleSubmit} className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-xl shadow-slate-200/60 sm:p-8">
-          <div><p className="text-sm font-semibold text-indigo-600">Welcome back</p><h1 className="mt-1 text-3xl font-semibold text-slate-900">Log in to PocketWise</h1><p className="mt-2 text-sm text-slate-600">Pick up where you left off.</p></div>
+        <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-lg shadow-slate-200/50 sm:p-8">
+          <div><p className="text-sm font-semibold text-indigo-600">Welcome back</p><h1 className="mt-1 text-[28px] font-semibold tracking-tight text-slate-900">Log in to PocketWise</h1><p className="mt-2 text-sm text-slate-600">Pick up where you left off.</p></div>
 
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -50,7 +50,7 @@ export default function Login() {
           </div>
 
           <button type="submit" disabled={loading}
-            className="w-full rounded-lg bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+            className="w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60">
             {loading ? "Logging in..." : "Log In"}
           </button>
 

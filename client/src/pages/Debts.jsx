@@ -150,7 +150,7 @@ export default function Debts() {
             <div className={`${card} p-4`}><div className="text-sm text-slate-600">People owe me</div><div className="mt-1 text-2xl font-semibold text-green-700">{formatMoney(owedToMe)}</div><div className="text-xs text-slate-600">{openItems.filter((i) => i.direction === "owed_to_me").length} open records</div></div>
             <div className={`${card} p-4`}><div className="text-sm text-slate-600">I owe others</div><div className="mt-1 text-2xl font-semibold text-red-700">{formatMoney(iOwe)}</div><div className="text-xs text-slate-600">{openItems.filter((i) => i.direction === "i_owe").length} open records</div></div>
           </div>
-          {!items.length && <Empty icon={Users} title="No utang records yet" action={<button onClick={() => openAdd("shared")} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white">Split your first bill</button>}>Track dinner, rent, group gifts, or money you lent to a friend.</Empty>}
+          {!items.length && <Empty icon={Users} title="No records yet" action={<button onClick={() => openAdd("shared")} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white">Split your first bill</button>}></Empty>}
           <div className="space-y-3">
             {items.map((item) => (
               <article key={item._id} className={`${card} flex flex-wrap items-center gap-4 p-4`}>

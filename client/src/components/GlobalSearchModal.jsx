@@ -9,7 +9,6 @@ const pages = [
   ["Transactions", "/transactions", "Money"],
   ["Budgets", "/budgets", "Planning"],
   ["Upcoming", "/bills", "Planning"],
-  ["Credit Tracking", "/credit-tracking", "Money"],
   ["Goals", "/goals", "Planning"],
   ["Insights", "/reports", "Analysis"],
   ["Settings", "/settings", "Settings"],

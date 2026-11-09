@@ -35,8 +35,8 @@ export default function RecentlyDeleted() {
   return (
     <div className="w-full">
       <div className="mb-6">
-        <h2 className="text-2xl font-semibold">Recently Deleted</h2>
-        <p className="mt-1 text-sm text-slate-600">Restore deleted PocketWise records within 30 days.</p>
+        
+      
       </div>
       {error && <ErrorBar message={error} onRetry={load} />}
       {!error && !items.length && <Empty icon={ArchiveRestore} title="Nothing recently deleted">Deleted transactions, accounts, bills, budgets, goals, and Utang records will appear here.</Empty>}

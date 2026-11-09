@@ -149,7 +149,7 @@ export default function Accounts() {
       {items && items.length === 0 && (
         <Empty icon={Landmark} title="No accounts yet"
           action={<button onClick={openCreate} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Create your first account</button>}>
-          Add your bank account, e-wallet or cash so PocketWise can show what you have.
+          
         </Empty>
       )}
 

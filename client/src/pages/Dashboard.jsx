@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine, WalletMinimal, PiggyBank, AlertTriangle, Star, TrendingUp, ChartNoAxesCombined } from "lucide-react";
+import { Sparkles, AlertCircle, ArrowDownLeft, ArrowUpRight, ScanLine, WalletMinimal, PiggyBank, AlertTriangle, Star, TrendingUp, ChartNoAxesCombined, ArrowRight, Target, ReceiptText, ListChecks } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useQuickAdd } from "../context/QuickAddContext";
@@ -207,17 +207,31 @@ export default function Dashboard() {
       )}
 
       {summary && isEmpty && (
-        <Empty icon={Sparkles} title="Welcome to PocketWise"
+        <Empty icon={Sparkles} title="Get started with PocketWise"
           action={
-            <>
-              <Link to="/accounts" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">1. Add an account</Link>
-              <button onClick={openAdd} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">2. Log your first transaction</button>
-              <Link to="/goals" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">3. Create a goal</Link>
-              <button onClick={openAdd} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">4. Record an expense</button>
-              <Link to="/setup" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Open setup guide</Link>
-            </>
+            <div className="grid w-full max-w-2xl gap-2 text-left sm:grid-cols-2">
+              <Link to="/accounts" className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-indigo-300 hover:bg-indigo-50/50">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><WalletMinimal size={19} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-slate-900">Add an account</strong><span className="block text-xs text-slate-600">Connect a bank or wallet</span></span>
+                <ArrowRight size={16} className="text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-600" aria-hidden="true" />
+              </Link>
+              <button onClick={() => openAdd({ type: "expense" })} className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50/50">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700"><ReceiptText size={19} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-slate-900">Record an expense</strong><span className="block text-xs text-slate-600">Add your first transaction</span></span>
+                <ArrowRight size={16} className="text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-600" aria-hidden="true" />
+              </button>
+              <Link to="/goals" className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-indigo-300 hover:bg-indigo-50/50">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Target size={19} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-slate-900">Create a savings goal</strong><span className="block text-xs text-slate-600">Plan for something important</span></span>
+                <ArrowRight size={16} className="text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-600" aria-hidden="true" />
+              </Link>
+              <Link to="/setup" className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-indigo-300 hover:bg-indigo-50/50">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><ListChecks size={19} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1"><strong className="block text-sm font-semibold text-slate-900">Open setup guide</strong><span className="block text-xs text-slate-600">Complete the remaining steps</span></span>
+                <ArrowRight size={16} className="text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-600" aria-hidden="true" />
+              </Link>
+            </div>
           }>
-          Add the place your money lives, then log what you spend. Your overview, forecast and budgets fill in as you go.
         </Empty>
       )}
 
